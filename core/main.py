@@ -79,40 +79,42 @@ def sys_load():
 
 def interface_traffic(nic_name, nic_alias=None):
     '''获取网卡流量信息'''
-    rx_bytes, tx_bytes = get_net_io_counters(nic_name)
+    rx_bytes, tx_bytes, nic_status = get_net_io_counters(nic_name)
     if nic_alias:
         zabbix_item_descover('Zabbix.interface', nic_alias, '{#IFNAME}')
         if_rx_zab = zabbix_get_item(f'IF_get[{nic_alias},In_traff]', rx_bytes)
         if_tx_zab = zabbix_get_item(f'IF_get[{nic_alias},Out_traff]', tx_bytes)
+        if_status_zab = zabbix_get_item(f'IF_get[{nic_alias},Status]', nic_status)
         # log.info(f' {nic_alias}: Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
-        log.info(f' {nic_alias}, 接收: {rx_bytes} bytes, RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes, TX zabbix: {if_tx_zab}')
+        log.info(f' {nic_alias}, 接收: {rx_bytes} bytes, RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes, TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
     else:
         # log.info(f' {nic_name}, Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
         zabbix_item_descover('Zabbix.interface', nic_name, '{#IFNAME}')
         if_rx_zab = zabbix_get_item(f'IF_get[{nic_name},In_traff]', rx_bytes)
         if_tx_zab = zabbix_get_item(f'IF_get[{nic_name},Out_traff]', tx_bytes)
-        log.info(f' {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}')
+        if_status_zab = zabbix_get_item(f'IF_get[{nic_name},Status]', nic_status)
+        log.info(f' {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
     
 
 def ping_address(ip_address, ip_alias=None):
     '''获取 ping 信息'''
     packet_loss_rate, avg_rtt = ping(ip_address)
-
+    
     try:
-        int(avg_rtt)
+        float(avg_rtt)
     except (ValueError, TypeError):
         avg_rtt = 0
 
     if ip_alias:
         zabbix_item_descover('Zabbix.ping.dst_ip', ip_alias, '{#DST_IP}')
         ping_loss_zab = zabbix_get_item(f'ping_get[{ip_alias},loss]', int(packet_loss_rate.rstrip('%')))
-        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_alias},delay]', int(avg_rtt))
-        log.info(f' 地址: {ip_alias} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {avg_rtt} ms, Delay zabbix: {ping_rtt_zab}')
+        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_alias},delay]', float(avg_rtt))
+        log.info(f' 地址: {ip_alias} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {float(avg_rtt)} ms, Delay zabbix: {ping_rtt_zab}')
     else:
         zabbix_item_descover('Zabbix.ping.dst_ip', ip_address, '{#DST_IP}')
         ping_loss_zab = zabbix_get_item(f'ping_get[{ip_address},loss]', int(packet_loss_rate.rstrip('%')))
-        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_address},delay]', int(avg_rtt))
-        log.info(f' 地址: {ip_address} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {avg_rtt} ms, Delay zabbix: {ping_rtt_zab}')
+        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_address},delay]', float(avg_rtt))
+        log.info(f' 地址: {ip_address} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {float(avg_rtt)} ms, Delay zabbix: {ping_rtt_zab}')
 
 
 def get_config():
@@ -122,15 +124,16 @@ def get_config():
     
     if cfg.getboolean('zabbix item','Item.if'):
         
-        if_list = [item.strip() for item in cfg.get('if', 'if_nic').split(',')]
-        for if_key in if_list:
-            '''
-            开启多线程
-            thread_if = threading.Thread(target=interface_traffic, 
-                                         args=(if_key,))
-            thread_if.start()
-            '''
-            interface_traffic(if_key)
+        if 'if_nic' in cfg.options('if'):
+            if_list = [item.strip() for item in cfg.get('if', 'if_nic').split(',')]
+            for if_key in if_list:
+                '''
+                开启多线程
+                thread_if = threading.Thread(target=interface_traffic, 
+                                            args=(if_key,))
+                thread_if.start()
+                '''
+                interface_traffic(if_key)
         
         if 'if_nic_alias' in cfg.options('if'):
             for if_alias_key in cfg.get('if', 'if_nic_alias').split(','):
@@ -145,10 +148,11 @@ def get_config():
         
     if cfg.getboolean('zabbix item','Item.ping'):
         
-        ping_list = [item.strip() for item in cfg.get('ping', 'ping_address').split(',')]
-        for ping_key in ping_list:
-            thread_ping = Thread(target=ping_address, args=(ping_key,))
-            thread_ping.start()
+        if 'ping_address' in cfg.options('ping'):
+            ping_list = [item.strip() for item in cfg.get('ping', 'ping_address').split(',')]
+            for ping_key in ping_list:
+                thread_ping = Thread(target=ping_address, args=(ping_key,))
+                thread_ping.start()
             
         if 'ping_address_alias' in cfg.options('ping'):
             for ping_alias_key in cfg.get('ping', 'ping_address_alias').split(','):
