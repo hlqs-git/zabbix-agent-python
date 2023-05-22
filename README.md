@@ -18,6 +18,13 @@
    ```
 
    # 4. 使用
+   ```
+   # 运行项目中的 start.py文件 启动程序
+   python3 start.py
+   # 或者加入crontab 定时执行
+   */1 * * * * python3 /path/zabbix/start.py
+   ```
+
    init.py 
     初始化文件,用来安装依赖库
   
