@@ -122,15 +122,16 @@ def get_config():
     
     if cfg.getboolean('zabbix item','Item.if'):
         
-        if_list = [item.strip() for item in cfg.get('if', 'if_nic').split(',')]
-        for if_key in if_list:
-            '''
-            开启多线程
-            thread_if = threading.Thread(target=interface_traffic, 
-                                         args=(if_key,))
-            thread_if.start()
-            '''
-            interface_traffic(if_key)
+        if 'if_nic' in cfg.options('if'):
+            if_list = [item.strip() for item in cfg.get('if', 'if_nic').split(',')]
+            for if_key in if_list:
+                '''
+                开启多线程
+                thread_if = threading.Thread(target=interface_traffic, 
+                                            args=(if_key,))
+                thread_if.start()
+                '''
+                interface_traffic(if_key)
         
         if 'if_nic_alias' in cfg.options('if'):
             for if_alias_key in cfg.get('if', 'if_nic_alias').split(','):
@@ -145,10 +146,11 @@ def get_config():
         
     if cfg.getboolean('zabbix item','Item.ping'):
         
-        ping_list = [item.strip() for item in cfg.get('ping', 'ping_address').split(',')]
-        for ping_key in ping_list:
-            thread_ping = Thread(target=ping_address, args=(ping_key,))
-            thread_ping.start()
+        if 'ping_address' in cfg.options('ping'):
+            ping_list = [item.strip() for item in cfg.get('ping', 'ping_address').split(',')]
+            for ping_key in ping_list:
+                thread_ping = Thread(target=ping_address, args=(ping_key,))
+                thread_ping.start()
             
         if 'ping_address_alias' in cfg.options('ping'):
             for ping_alias_key in cfg.get('ping', 'ping_address_alias').split(','):
