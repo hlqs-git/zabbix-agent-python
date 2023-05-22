@@ -9,7 +9,7 @@ try:
 except ImportError or ModuleNotFoundError:
     
     print(file_path)
-    os.system(f'pip3 install {file_path}/package/download/psutil*')
+    os.system(f'pip3 install {file_path}/package/download/psutil-5.9.5.tar.gz')
     import psutil
 
 try:

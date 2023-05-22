@@ -97,22 +97,22 @@ def interface_traffic(nic_name, nic_alias=None):
 def ping_address(ip_address, ip_alias=None):
     '''获取 ping 信息'''
     packet_loss_rate, avg_rtt = ping(ip_address)
-
+    
     try:
-        int(avg_rtt)
+        float(avg_rtt)
     except (ValueError, TypeError):
         avg_rtt = 0
 
     if ip_alias:
         zabbix_item_descover('Zabbix.ping.dst_ip', ip_alias, '{#DST_IP}')
         ping_loss_zab = zabbix_get_item(f'ping_get[{ip_alias},loss]', int(packet_loss_rate.rstrip('%')))
-        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_alias},delay]', int(avg_rtt))
-        log.info(f' 地址: {ip_alias} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {avg_rtt} ms, Delay zabbix: {ping_rtt_zab}')
+        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_alias},delay]', float(avg_rtt))
+        log.info(f' 地址: {ip_alias} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {float(avg_rtt)} ms, Delay zabbix: {ping_rtt_zab}')
     else:
         zabbix_item_descover('Zabbix.ping.dst_ip', ip_address, '{#DST_IP}')
         ping_loss_zab = zabbix_get_item(f'ping_get[{ip_address},loss]', int(packet_loss_rate.rstrip('%')))
-        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_address},delay]', int(avg_rtt))
-        log.info(f' 地址: {ip_address} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {avg_rtt} ms, Delay zabbix: {ping_rtt_zab}')
+        ping_rtt_zab = zabbix_get_item(f'ping_get[{ip_address},delay]', float(avg_rtt))
+        log.info(f' 地址: {ip_address} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {float(avg_rtt)} ms, Delay zabbix: {ping_rtt_zab}')
 
 
 def get_config():
