@@ -24,10 +24,12 @@ server_port = cfg.get('zabbix conf','ServerPort')
 host_name = cfg.get('zabbix conf','Hostname')
 discovery_hours= cfg.get('zabbix conf','DiscoveryHours')
 
+# 统一监控上报时间
+timestamp = int(time())
 
 def zabbix_get_item(key, value):
     '''获取 zabbix item'''
-    timestamp = int(time())
+    
     log.debug(f' Zabbix 监控项数据上报 {key} : {value}')
     retun_value = report_to_zabbix(server_ip, 
                                    int(server_port), 

@@ -13,6 +13,9 @@
 
    # 3. 初始化
    ```
+   # 制作python软链
+   ln -s /usr/bin/python3 /usr/bin/python
+
    # 安装依赖包
    yum install gcc python3-devel
    
@@ -46,3 +49,5 @@
    log/*
     日志文件
 
+   # 5. zabbix 监控添加
+   Zabbix Server 添加主机监控模板时注意使用 "Template_sysload_Python_Nodata v1" 或 "Template_sysload_Python v1"
