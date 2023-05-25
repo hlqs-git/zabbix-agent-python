@@ -15,5 +15,5 @@ except ImportError or ModuleNotFoundError:
 try:
     import pyzabbix
 except ImportError or ModuleNotFoundError:
-    os.system(f'pip3 install {file_path}/package/download/py_zabbix*')
+    os.system(f'pip3 install {file_path}/package/download/py_zabbix-1.1.7-py3-none-any.whl')
     import pyzabbix
