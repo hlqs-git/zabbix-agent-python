@@ -14,6 +14,10 @@ def get_net_io_counters(interface_name):
     
     bytes_received = net_io_counters.bytes_recv
     bytes_sent = net_io_counters.bytes_sent
-    net_status = psutil.net_if_stats().get(interface_name)
+    net_status = psutil.net_if_stats().get(interface_name).isup
+    if net_status is False:
+        net_status = 0
+    else:
+        net_status = 1
 
     return bytes_received, bytes_sent, net_status

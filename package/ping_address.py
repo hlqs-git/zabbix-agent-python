@@ -3,7 +3,7 @@
 
 import subprocess
 
-def ping(ip, count=4):
+def ping(ip, count=50):
     """
     探测指定IP地址,返回丢包率和平均时延
     :param ip: IP地址

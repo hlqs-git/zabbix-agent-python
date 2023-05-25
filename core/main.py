@@ -84,7 +84,7 @@ def interface_traffic(nic_name, nic_alias=None):
         zabbix_item_descover('Zabbix.interface', nic_alias, '{#IFNAME}')
         if_rx_zab = zabbix_get_item(f'IF_get[{nic_alias},In_traff]', rx_bytes)
         if_tx_zab = zabbix_get_item(f'IF_get[{nic_alias},Out_traff]', tx_bytes)
-        if_status_zab = zabbix_get_item(f'IF_get[{nic_alias},Status]', nic_status)
+        if_status_zab = zabbix_get_item(f'IF_get[{nic_alias},status]', nic_status)
         # log.info(f' {nic_alias}: Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
         log.info(f' {nic_alias}, 接收: {rx_bytes} bytes, RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes, TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
     else:
@@ -92,7 +92,7 @@ def interface_traffic(nic_name, nic_alias=None):
         zabbix_item_descover('Zabbix.interface', nic_name, '{#IFNAME}')
         if_rx_zab = zabbix_get_item(f'IF_get[{nic_name},In_traff]', rx_bytes)
         if_tx_zab = zabbix_get_item(f'IF_get[{nic_name},Out_traff]', tx_bytes)
-        if_status_zab = zabbix_get_item(f'IF_get[{nic_name},Status]', nic_status)
+        if_status_zab = zabbix_get_item(f'IF_get[{nic_name},status]', nic_status)
         log.info(f' {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
     
 

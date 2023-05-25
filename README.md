@@ -13,6 +13,9 @@
 
    # 3. 初始化
    ```
+   # 安装依赖包
+   yum install gcc python3-devel
+   
    # 运行项目中的 init.py文件 安装依赖库
    python3 init.py
    ```
