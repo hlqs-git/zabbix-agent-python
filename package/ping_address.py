@@ -10,7 +10,7 @@ def ping(ip, count=50):
     :param count: 探测包数,默认为4个
     :return: 丢包率和平均时延(单位ms)
     """
-    ping_result = subprocess.run(['ping', '-c', str(count), '-w', '1', ip], 
+    ping_result = subprocess.run(['ping', '-w', str(count), '-i', '1', ip], 
                                  stdout=subprocess.PIPE, 
                                  stderr=subprocess.PIPE, 
                                  universal_newlines=True)
@@ -27,5 +27,3 @@ def ping(ip, count=50):
             avg_rtt = line.split('/')[4]
 
     return packet_loss_rate, avg_rtt
-
-
