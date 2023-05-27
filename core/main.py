@@ -70,14 +70,6 @@ def sys_load():
     log.info(f' 内存使用率: {sys_load["mem_used_percent"]}, 内存使用率 zabbix: {sys_mem_zabbix}')
     log.info(f' 磁盘使用率: {sys_load["disk_used_percent"]}, 磁盘使用率 zabbix: {sys_disk_zabbix}')
     
-    '''
-    log.info(f' 系统负载：{sys_load}; 
-    1分钟负载: {sys_load["load_1"]}, 1分钟负载 zabbix: {sys_1_zabbix}; 
-    5分钟负载: {sys_load["load_5"]}, 5分钟负载 zabbix: {sys_5_zabbix}; 
-    15分钟负载: {sys_load["load_15"]}, 15分钟负载 zabbix: {sys_15_zabbix}; 
-    内存使用率: {sys_load["mem_used_percent"]}, 内存使用率 zabbix: {sys_mem_zabbix}; 
-    磁盘使用率: {sys_load["disk_used_percent"]}, 磁盘使用率 zabbix: {sys_disk_zabbix}')
-    '''
 
 def interface_traffic(nic_name, nic_alias=None):
     '''获取网卡流量信息'''
@@ -98,9 +90,9 @@ def interface_traffic(nic_name, nic_alias=None):
         log.info(f' {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
     
 
-def ping_address(ip_address, ip_alias=None):
+def ping_address(ip_address, ip_time, ip_alias=None):
     '''获取 ping 信息'''
-    packet_loss_rate, avg_rtt = ping(ip_address)
+    packet_loss_rate, avg_rtt = ping(ip_address, ip_time)
     
     try:
         float(avg_rtt)
@@ -150,16 +142,21 @@ def get_config():
         
     if cfg.getboolean('zabbix item','Item.ping'):
         
+        if 'ping_time' in cfg.options('ping'):
+            ping_time = cfg.getint('ping', 'ping_time')
+        else:
+            ping_time = 50
+        
         if 'ping_address' in cfg.options('ping'):
             ping_list = [item.strip() for item in cfg.get('ping', 'ping_address').split(',')]
             for ping_key in ping_list:
-                thread_ping = Thread(target=ping_address, args=(ping_key,))
+                thread_ping = Thread(target=ping_address, args=(ping_key, ping_time,))
                 thread_ping.start()
             
         if 'ping_address_alias' in cfg.options('ping'):
             for ping_alias_key in cfg.get('ping', 'ping_address_alias').split(','):
                 ping_key, ping_value = [item.strip() for item in ping_alias_key.split(':')]
-                thread_ping = Thread(target=ping_address, args=(ping_value, ping_key,))
+                thread_ping = Thread(target=ping_address, args=(ping_value, ping_key, ping_time,))
                 thread_ping.start()
 
 
