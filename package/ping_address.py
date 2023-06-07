@@ -3,6 +3,9 @@
 
 import re
 import subprocess
+from package.log import Log
+
+log = Log(__name__).getlog()
 
 def ping(ip, sec=50 , interval='0.25'):
     """
@@ -16,6 +19,10 @@ def ping(ip, sec=50 , interval='0.25'):
                                  stderr=subprocess.PIPE, 
                                  universal_newlines=True)
     output = ping_result.stdout
+    
+    for line in output.splitlines():
+        log.debug(f' Ping 调试日志输出 {line}')
+    
     
     packet_loss_rate = re.search(r"(\d+)%", output)
     packet_loss_rate = packet_loss_rate.group(1) if packet_loss_rate else None
