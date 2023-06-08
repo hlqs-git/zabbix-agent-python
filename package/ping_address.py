@@ -23,15 +23,14 @@ def ping(ip, sec=50 , interval='0.25'):
     for line in output.splitlines():
         log.debug(f' Ping 调试日志输出 {line}')
     
-    
-    packet_loss_rate = re.search(r"(\d+)%", output)
+    packet_loss_rate = re.search(r"(\d+(\.\d+)?)% packet loss", output)
     packet_loss_rate = packet_loss_rate.group(1) if packet_loss_rate else None
     
     avg_rtt = re.search(r"avg\/max\/mdev = (\d+\.\d+)\/\d+\.\d+\/\d+\.\d+\/\d+\.\d+", output)
     avg_rtt = avg_rtt.group(1) if avg_rtt else None
     
     if packet_loss_rate:
-        packet_loss_rate = packet_loss_rate
+        # packet_loss_rate = packet_loss_rate
         if packet_loss_rate == '100':
             avg_rtt = 0
     else:
@@ -39,4 +38,3 @@ def ping(ip, sec=50 , interval='0.25'):
         avg_rtt = 0
         
     return packet_loss_rate, avg_rtt
-
