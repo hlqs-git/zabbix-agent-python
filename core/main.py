@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
+import socket
 from os import path
 from time import time
 from json import dumps
@@ -28,16 +29,23 @@ discovery_hours= cfg.get('zabbix conf','DiscoveryHours')
 timestamp = int(time())
 
 def zabbix_get_item(key, value):
+    
     '''获取 zabbix item'''
     
     log.debug(f' Zabbix 监控项数据上报 {key} : {value}')
-    retun_value = report_to_zabbix(server_ip, 
-                                   int(server_port), 
-                                   host_name, 
-                                   key, 
-                                   value, 
-                                   timestamp)
-    return retun_value
+    try:
+        retun_value = report_to_zabbix(server_ip, 
+                                    int(server_port), 
+                                    host_name, 
+                                    key, 
+                                    value, 
+                                    timestamp)
+    except OSError:
+        log.error(f' 网络不可达: {server_ip}')
+        retun_value = 'Error'
+        pass
+    finally:
+        return retun_value
 
 
 def zabbix_item_descover(key, value, type):
@@ -73,21 +81,25 @@ def sys_load():
 
 def interface_traffic(nic_name, nic_alias=None):
     '''获取网卡流量信息'''
-    rx_bytes, tx_bytes, nic_status = get_net_io_counters(nic_name)
-    if nic_alias:
-        zabbix_item_descover('Zabbix.interface', nic_alias, '{#IFNAME}')
-        if_rx_zab = zabbix_get_item(f'IF_get[{nic_alias},In_traff]', rx_bytes)
-        if_tx_zab = zabbix_get_item(f'IF_get[{nic_alias},Out_traff]', tx_bytes)
-        if_status_zab = zabbix_get_item(f'IF_get[{nic_alias},status]', nic_status)
-        # log.info(f' {nic_alias}: Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
-        log.info(f' {nic_alias}, 接收: {rx_bytes} bytes, RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes, TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
+    try:
+        rx_bytes, tx_bytes, nic_status = get_net_io_counters(nic_name)
+    except ValueError:
+        log.error(f' 无效的网络接口名称: {nic_name}')
     else:
-        # log.info(f' {nic_name}, Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
-        zabbix_item_descover('Zabbix.interface', nic_name, '{#IFNAME}')
-        if_rx_zab = zabbix_get_item(f'IF_get[{nic_name},In_traff]', rx_bytes)
-        if_tx_zab = zabbix_get_item(f'IF_get[{nic_name},Out_traff]', tx_bytes)
-        if_status_zab = zabbix_get_item(f'IF_get[{nic_name},status]', nic_status)
-        log.info(f' {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
+        if nic_alias:
+            zabbix_item_descover('Zabbix.interface', nic_alias, '{#IFNAME}')
+            if_rx_zab = zabbix_get_item(f'IF_get[{nic_alias},In_traff]', rx_bytes)
+            if_tx_zab = zabbix_get_item(f'IF_get[{nic_alias},Out_traff]', tx_bytes)
+            if_status_zab = zabbix_get_item(f'IF_get[{nic_alias},status]', nic_status)
+            # log.info(f' {nic_alias}: Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
+            log.info(f' {nic_alias}, 接收: {rx_bytes} bytes, RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes, TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
+        else:
+            # log.info(f' {nic_name}, Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
+            zabbix_item_descover('Zabbix.interface', nic_name, '{#IFNAME}')
+            if_rx_zab = zabbix_get_item(f'IF_get[{nic_name},In_traff]', rx_bytes)
+            if_tx_zab = zabbix_get_item(f'IF_get[{nic_name},Out_traff]', tx_bytes)
+            if_status_zab = zabbix_get_item(f'IF_get[{nic_name},status]', nic_status)
+            log.info(f' {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
     
 
 def ping_address(ip_address, ip_time, ip_alias=None):
