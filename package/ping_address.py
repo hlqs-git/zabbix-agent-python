@@ -37,4 +37,4 @@ def ping(ip, sec=50 , interval='0.25'):
         packet_loss_rate = 100
         avg_rtt = 0
         
-    return packet_loss_rate, avg_rtt
+    return float(packet_loss_rate), avg_rtt
