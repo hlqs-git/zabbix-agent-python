@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
+import ast
 import socket
 from os import path
 from time import time
@@ -12,6 +13,7 @@ from package.ping_address import ping
 from package.system_load import get_system_load
 from package.zabbix_requst import report_to_zabbix
 from package.interface_traffic import get_net_io_counters
+from package.interface_traffic import get_ns_net_io_counters
 
 
 log = Log(__name__).getlog()
@@ -100,11 +102,34 @@ def interface_traffic(nic_name, nic_alias=None):
             if_tx_zab = zabbix_get_item(f'IF_get[{nic_name},Out_traff]', tx_bytes)
             if_status_zab = zabbix_get_item(f'IF_get[{nic_name},status]', nic_status)
             log.info(f' {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
-    
 
-def ping_address(ip_address, ip_time, ip_alias=None):
+
+def ns_interface_traffic(ns_name, nic_name, nic_alias=None):
+    '''获取网卡流量信息'''
+    try:
+        rx_bytes, tx_bytes, nic_status = get_ns_net_io_counters(ns_name, nic_name)
+    except ValueError:
+        log.error(f' 名称空间: {ns_name} 无效的网络接口名称: {nic_name}')
+    else:
+        if nic_alias:
+            zabbix_item_descover('Zabbix.interface', nic_alias, '{#IFNAME}')
+            if_rx_zab = zabbix_get_item(f'IF_get[{nic_alias},In_traff]', rx_bytes)
+            if_tx_zab = zabbix_get_item(f'IF_get[{nic_alias},Out_traff]', tx_bytes)
+            if_status_zab = zabbix_get_item(f'IF_get[{nic_alias},status]', nic_status)
+            # log.info(f' {nic_alias}: Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
+            log.info(f' {ns_name}: {nic_alias}: {nic_name}, 接收: {rx_bytes} bytes, RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes, TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
+        else:
+            # log.info(f' {nic_name}, Received {rx_bytes} bytes, Sent {tx_bytes} bytes')
+            zabbix_item_descover('Zabbix.interface', nic_name, '{#IFNAME}')
+            if_rx_zab = zabbix_get_item(f'IF_get[{nic_name},In_traff]', rx_bytes)
+            if_tx_zab = zabbix_get_item(f'IF_get[{nic_name},Out_traff]', tx_bytes)
+            if_status_zab = zabbix_get_item(f'IF_get[{nic_name},status]', nic_status)
+            log.info(f' {ns_name}: {nic_name}, 接收: {rx_bytes} bytes RX zabbix: {if_rx_zab}; 发送: {tx_bytes} bytes TX zabbix: {if_tx_zab}; 状态: {nic_status}, 状态 zabbix: {if_status_zab}')
+
+
+def ping_address(ip_address, ip_time, ip_alias=None, namespace=None):
     '''获取 ping 信息'''
-    packet_loss_rate, avg_rtt = ping(ip_address, ip_time)
+    packet_loss_rate, avg_rtt = ping(ip_address, ip_time, namespace=namespace)
     
     try:
         float(avg_rtt)
@@ -171,6 +196,45 @@ def get_config():
                 thread_ping = Thread(target=ping_address, args=(ping_value, ping_key, ping_time,))
                 thread_ping.start()
 
+    if cfg.getboolean('zabbix item','Item.ns_if'):
+
+        if 'ns_if_nic' in cfg.options('ns_if'):
+            for ns_if_key in cfg.get('ns_if', 'ns_if_nic').split(','):
+                if_key, if_value = [item.strip() for item in ns_if_key.split(':')]
+                '''
+                开启多线程
+                thread_if = threading.Thread(target=interface_traffic, 
+                                             args=(if_value,if_key,))
+                thread_if.start()
+                '''
+                ns_interface_traffic(if_key, if_value)
+        
+        if 'ns_if_nic_alias' in cfg.options('ns_if'):
+            ns_if_nic_dict = (eval(cfg.get('ns_if', 'ns_if_nic_alias')))
+            for ns_if_alias_key, ns_if_alias_value in ns_if_nic_dict.items():
+                for key, value in ns_if_alias_value.items():
+                    
+                    '''
+                    开启多线程
+                    thread_if = threading.Thread(target=interface_traffic, 
+                                                 args=(if_value,if_key,))
+                    thread_if.start()
+                    '''
+                    ns_interface_traffic(ns_if_alias_key, value, key)
+    
+    if cfg.getboolean('zabbix item','Item.ns_ping'):
+        
+        if 'ns_ping_time' in cfg.options('ns_ping'):
+            ping_time = cfg.getint('ns_ping', 'ns_ping_time')
+        else:
+            ping_time = 50
+        
+        if 'ns_ping_address' in cfg.options('ns_ping'):
+            for ping_alias_key in cfg.get('ns_ping', 'ns_ping_address').split(','):
+                ping_key, ping_value = [item.strip() for item in ping_alias_key.split(':')]
+                thread_ping = Thread(target=ping_address, args=(ping_value, ping_time), kwargs={'ip_alias': None, 'namespace': ping_key})
+                thread_ping.start()
 
 def main():
     get_config()
+

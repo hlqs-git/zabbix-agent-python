@@ -7,17 +7,23 @@ from package.log import Log
 
 log = Log(__name__).getlog()
 
-def ping(ip, sec=50 , interval='0.25'):
+def ping(ip, sec=50 , interval='0.25', namespace=None):
     """
     探测指定IP地址,返回丢包率和平均时延
     :param ip: IP地址
     :param count: 探测包数,默认为4个
     :return: 丢包率和平均时延(单位ms)
     """
-    ping_result = subprocess.run(['ping', '-w', str(sec), '-i', interval, '-q', ip], 
-                                 stdout=subprocess.PIPE, 
-                                 stderr=subprocess.PIPE, 
-                                 universal_newlines=True)
+    if namespace is None:
+        ping_result = subprocess.run(['ping', '-w', str(sec), '-i', interval, '-q', ip], 
+                                    stdout=subprocess.PIPE, 
+                                    stderr=subprocess.PIPE, 
+                                    universal_newlines=True)
+    else:
+        ping_result = subprocess.run(['ip', 'netns', 'exec', namespace, 'ping', '-w', str(sec), '-i', interval, '-q', ip], 
+                                    stdout=subprocess.PIPE, 
+                                    stderr=subprocess.PIPE, 
+                                    universal_newlines=True)
     output = ping_result.stdout
     
     for line in output.splitlines():
