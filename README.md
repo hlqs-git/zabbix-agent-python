@@ -51,3 +51,9 @@
 
    # 5. zabbix 监控添加
    Zabbix Server 添加主机监控模板时注意使用 "Template_sysload_Python_Nodata v1" 或 "Template_sysload_Python v1"
+
+   # 6. 历史更新
+   2023-11-21 version 1.04
+    - 增加了 linux namespace 接口监控
+    - 增加了 linux namespace ping监控
+
