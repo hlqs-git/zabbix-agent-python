@@ -54,6 +54,6 @@
 
    # 6. 历史更新
    2023-11-21 version 1.04
-    - 增加了 linux namespace 接口监控
-    - 增加了 linux namespace ping监控
+   - 增加了 linux namespace 接口监控
+   - 增加了 linux namespace ping监控
 
