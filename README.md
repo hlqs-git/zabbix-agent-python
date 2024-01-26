@@ -4,8 +4,6 @@
 
    # 2. 开始
    ```
-   # algoblu office 内网环境使用
-   git clone http://192.168.11.7/algoblu-public/zabbix.git
 
    # 互联网公网环境使用
    git clone http://101.36.148.155:6869/algoblu-public/zabbix.git
