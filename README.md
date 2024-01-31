@@ -4,9 +4,8 @@
 
    # 2. 开始
    ```
-
    # 互联网公网环境使用
-   git clone http://101.36.148.155:6869/algoblu-public/zabbix.git
+   git clone https://gitlab.heilvqishi.top:6869/algoblu-public/zabbix.git
    ```
 
    # 3. 初始化
@@ -54,4 +53,7 @@
    2023-11-21 version 1.04
    - 增加了 linux namespace 接口监控
    - 增加了 linux namespace ping监控
+   2024-01-31 version 1.08
+   - 修改IP为域名
+   - 修改http为https
 
