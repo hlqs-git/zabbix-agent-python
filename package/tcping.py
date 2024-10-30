@@ -8,13 +8,13 @@ log = Log(__name__).getlog()
 
 def tcping(host, port, count=50, timeout=1, namespace=None):
     if namespace is None:
-        tcping_result = subprocess.run(['tcping', '-4', '-c', str(count), 
+        tcping_result = subprocess.run(['/usr/local/sbin/tcping', '-4', '-c', str(count), 
                                           '-t', str(timeout), '-j', host, str(port)],
                                         stdout=subprocess.PIPE, 
                                         stderr=subprocess.PIPE, 
                                         universal_newlines=True)
     else:
-        tcping_result = subprocess.run(['ip', 'netns', 'exec', namespace, 'tcping', '-4', '-c', str(count), 
+        tcping_result = subprocess.run(['/usr/sbin/ip', 'netns', 'exec', namespace, '/usr/local/sbin/tcping', '-4', '-c', str(count), 
                                           '-t', str(timeout), '-j',  host, str(port)],
                                         stdout=subprocess.PIPE, 
                                         stderr=subprocess.PIPE, 
