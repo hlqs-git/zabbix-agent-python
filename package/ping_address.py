@@ -29,7 +29,7 @@ def ping(ip, sec=50 , interval='0.25', namespace=None):
     # for line in output.splitlines():
     #     log.debug(f' Ping 调试日志输出 {line}')
     for line in output.splitlines():
-        log.info(f' Ping 调试日志输出 {line}')
+        log.debug(f' Ping 调试日志输出 {line}')
     
     packet_loss_rate = re.search(r"(\d+(\.\d+)?)% packet loss", output)
     packet_loss_rate = packet_loss_rate.group(1) if packet_loss_rate else None

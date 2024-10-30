@@ -9,6 +9,7 @@ from datetime import datetime
 from threading import Thread
 from package.log import Log
 from configparser import ConfigParser
+from package.tcping import tcping
 from package.ping_address import ping
 from package.system_load import get_system_load
 from package.zabbix_requst import report_to_zabbix
@@ -148,6 +149,18 @@ def ping_address(ip_address, ip_time, ip_alias=None, namespace=None):
         log.info(f' 地址: {ip_address} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {float(avg_rtt)} ms, Delay zabbix: {ping_rtt_zab}')
 
 
+def tcping_address(host, port, count, timeout=1, namespace=None):
+    ip_addr, loss_pak, avg_time = tcping(host, port, count, timeout, namespace=namespace)
+    
+    host_port = f'{host}:{port}'
+    
+    zabbix_item_descover('Zabbix.ping.dst_ip', host_port, '{#DST_IP}')
+    tcping_loss_zab = zabbix_get_item(f'tcping_get[{host_port},loss]', int(loss_pak))
+    tcping_rtt_zab = zabbix_get_item(f'tcping_get[{host_port},delay]', float(avg_time))
+    log.info(f' 地址: {host_port} ({ip_addr}),丢包率: {loss_pak} Loss zabbix: {tcping_loss_zab} ;平均时延: {float(avg_time)} ms, Delay zabbix: {tcping_rtt_zab}')
+    
+
+
 def get_config():
 
     if cfg.getboolean('zabbix item','Item.sys'):
@@ -195,6 +208,29 @@ def get_config():
                 ping_key, ping_value = [item.strip() for item in ping_alias_key.split(':')]
                 thread_ping = Thread(target=ping_address, args=(ping_value, ping_key, ping_time,))
                 thread_ping.start()
+
+        if 'tcping_time' in cfg.options('ping'):
+            tcping_time = cfg.getint('ping', 'tcping_time')
+        else:
+            tcping_time = 50
+            
+        if 'tcping_address' in cfg.options('ping'):
+            ping_list = [item.strip() for item in cfg.get('ping', 'tcping_address').split(',')]
+            for ping_key in ping_list:
+                def is_host_port_format(value):
+                    parts = value.split(':')
+                    host_port = len(parts) == 2 and parts[1].isdigit() and 1 <= len(parts[1]) <= 5
+                    if host_port:
+                        return parts[0], int(parts[1])
+                    else:
+                        log.error(f"TCPing address {value} is not in host:port format")
+                        return None
+
+                if is_host_port_format(ping_key):
+                    host, port = is_host_port_format(ping_key)
+                    thread_ping = Thread(target=tcping_address, args=(host, port, tcping_time,))
+                    thread_ping.start()
+        
 
     if cfg.getboolean('zabbix item','Item.ns_if'):
 
