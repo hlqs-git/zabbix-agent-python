@@ -27,17 +27,17 @@ def tcping(host, port, count=50, timeout=1, namespace=None):
         try:
             output_data = json.loads(last_json)  # 将字符串解析为 JSON 对象
             # print(json.dumps(output_data, indent=4))  # 格式化输出 JSON
-            log.debug(f"TCPing 调试日志输出: {json.dumps(output_data, indent=4)}")
+            log.debug(f" TCPing 调试日志输出: {json.dumps(output_data, indent=4)}")
         except json.JSONDecodeError:
             # print("最后一行不是有效的 JSON 数据:", last_json)
-            log.error(f"TCPing 错误日志输出: {last_json}")
+            log.error(f" TCPing 错误日志输出: {last_json}")
     else:
         # print("没有输出")
-        log.error(f"TCPing 错误日志输出: 没有输出")
+        log.error(f" TCPing 错误日志输出: 没有输出")
     
     if output_data['type'] == 'error':
         # print(f"Error: {output_data['message']}")
-        log.debug(f"TCPing 调试日志输出: {output_data['message']}")
+        log.debug(f" TCPing 调试日志输出: {output_data['message']}")
         dst_addr = False
         loss_pak = '100.00'
         avg_time = '0.00'
@@ -51,7 +51,7 @@ def tcping(host, port, count=50, timeout=1, namespace=None):
         else:
             avg_time = '0.00'
         # print(f"TCPing {host}:{port} - {dst_addr}:{port} - Loss: {loss_pak}% - Avg: {avg_time}ms")
-        log.debug(f"TCPing 调试日志输出: TCPing {host}:{port} - {dst_addr}:{port} - Loss: {loss_pak}% - Avg: {avg_time}ms")
+        log.debug(f" TCPing 调试日志输出: TCPing {host}:{port} - {dst_addr}:{port} - Loss: {loss_pak}% - Avg: {avg_time}ms")
         
         return dst_addr, float(loss_pak), float(avg_time)
 

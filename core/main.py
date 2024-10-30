@@ -153,7 +153,7 @@ def tcping_address(host, port, count, timeout=1, namespace=None):
     ip_addr, loss_pak, avg_time = tcping(host, port, count, timeout, namespace=namespace)
     
     if ip_addr is False:
-        log.error(f'地址: {host} 无法解析')
+        log.error(f' TCPing 地址: {host} 无法解析')
     else:
     
         host_port = f'{host}:{port}'
