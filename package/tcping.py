@@ -38,6 +38,10 @@ def tcping(host, port, count=50, timeout=1, namespace=None):
     if output_data['type'] == 'error':
         # print(f"Error: {output_data['message']}")
         log.debug(f"TCPing 调试日志输出: {output_data['message']}")
+        dst_addr = False
+        loss_pak = '100.00'
+        avg_time = '0.00'
+        return dst_addr, float(loss_pak), float(avg_time)
     elif output_data['type'] == 'statistics':
         # print(f"TCP Ping statistics for {host}:{port}:")
         dst_addr = output_data['addr']
@@ -49,7 +53,7 @@ def tcping(host, port, count=50, timeout=1, namespace=None):
         # print(f"TCPing {host}:{port} - {dst_addr}:{port} - Loss: {loss_pak}% - Avg: {avg_time}ms")
         log.debug(f"TCPing 调试日志输出: TCPing {host}:{port} - {dst_addr}:{port} - Loss: {loss_pak}% - Avg: {avg_time}ms")
         
-        return dst_addr, loss_pak, avg_time
+        return dst_addr, float(loss_pak), float(avg_time)
 
 # if __name__ == "__main__":
 #     host = 'www.baidu.com'

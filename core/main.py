@@ -152,12 +152,16 @@ def ping_address(ip_address, ip_time, ip_alias=None, namespace=None):
 def tcping_address(host, port, count, timeout=1, namespace=None):
     ip_addr, loss_pak, avg_time = tcping(host, port, count, timeout, namespace=namespace)
     
-    host_port = f'{host}:{port}'
+    if ip_addr is False:
+        log.error(f'地址: {host} 无法解析')
+    else:
     
-    zabbix_item_descover('Zabbix.ping.dst_ip', host_port, '{#DST_IP}')
-    tcping_loss_zab = zabbix_get_item(f'tcping_get[{host_port},loss]', int(loss_pak))
-    tcping_rtt_zab = zabbix_get_item(f'tcping_get[{host_port},delay]', float(avg_time))
-    log.info(f' 地址: {host_port} ({ip_addr}),丢包率: {loss_pak} Loss zabbix: {tcping_loss_zab} ;平均时延: {float(avg_time)} ms, Delay zabbix: {tcping_rtt_zab}')
+        host_port = f'{host}:{port}'
+        
+        zabbix_item_descover('Zabbix.ping.dst_ip', host_port, '{#DST_IP}')
+        tcping_loss_zab = zabbix_get_item(f'ping_get[{host_port},loss]', int(loss_pak))
+        tcping_rtt_zab = zabbix_get_item(f'ping_get[{host_port},delay]', float(avg_time))
+        log.info(f' 地址: {host_port} ({ip_addr}),丢包率: {loss_pak} Loss zabbix: {tcping_loss_zab} ;平均时延: {float(avg_time)} ms, Delay zabbix: {tcping_rtt_zab}')
     
 
 
