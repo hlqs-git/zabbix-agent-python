@@ -18,6 +18,9 @@
    
    # 运行项目中的 init.py文件 安装依赖库
    python3 init.py
+
+   # 添加软件链接 (tcping)
+   ln -s /your_path/zabbix/package/download/tcping /usr/local/sbin/tcping
    ```
 
    # 4. 使用
@@ -57,4 +60,7 @@
    2024-01-31 version 1.08
    - 修改IP为域名
    - 修改http为https
+
+   2024-10-30 version 1.08.3
+   - 添加tcping功能
 
