@@ -149,7 +149,7 @@ def ping_address(ip_address, ip_time, ip_alias=None, namespace=None):
         log.info(f' 地址: {ip_address} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {float(avg_rtt)} ms, Delay zabbix: {ping_rtt_zab}')
 
 
-def tcping_address(host, port, count, timeout=1, namespace=None):
+def tcping_address(host, port, count, timeout=1, host_alias=None, namespace=None):
     ip_addr, loss_pak, avg_time = tcping(host, port, count, timeout, namespace=namespace)
     
     if ip_addr is False:
@@ -158,10 +158,19 @@ def tcping_address(host, port, count, timeout=1, namespace=None):
     
         host_port = f'{host}:{port}'
         
-        zabbix_item_descover('Zabbix.ping.dst_ip', host_port, '{#DST_IP}')
-        tcping_loss_zab = zabbix_get_item(f'ping_get[{host_port},loss]', int(loss_pak))
-        tcping_rtt_zab = zabbix_get_item(f'ping_get[{host_port},delay]', float(avg_time))
-        log.info(f' 地址: {host_port} ({ip_addr}),丢包率: {loss_pak} Loss zabbix: {tcping_loss_zab} ;平均时延: {float(avg_time)} ms, Delay zabbix: {tcping_rtt_zab}')
+        if host_alias:
+            alias_port = f'{host_alias}:{port}'
+            zabbix_item_descover('Zabbix.ping.dst_ip', alias_port, '{#DST_IP}')
+            tcping_loss_zab = zabbix_get_item(f'ping_get[{alias_port},loss]', int(loss_pak))
+            tcping_rtt_zab = zabbix_get_item(f'ping_get[{alias_port},delay]', float(avg_time))
+            log.info(f' 地址: {alias_port} ({ip_addr}),丢包率: {loss_pak} Loss zabbix: {tcping_loss_zab} ;平均时延: {float(avg_time)} ms, Delay zabbix: {tcping_rtt_zab}')
+            
+        else:
+        
+            zabbix_item_descover('Zabbix.ping.dst_ip', host_port, '{#DST_IP}')
+            tcping_loss_zab = zabbix_get_item(f'ping_get[{host_port},loss]', int(loss_pak))
+            tcping_rtt_zab = zabbix_get_item(f'ping_get[{host_port},delay]', float(avg_time))
+            log.info(f' 地址: {host_port} ({ip_addr}),丢包率: {loss_pak} Loss zabbix: {tcping_loss_zab} ;平均时延: {float(avg_time)} ms, Delay zabbix: {tcping_rtt_zab}')
     
 
 
@@ -233,6 +242,23 @@ def get_config():
                 if is_host_port_format(ping_key):
                     host, port = is_host_port_format(ping_key)
                     thread_ping = Thread(target=tcping_address, args=(host, port, tcping_time,))
+                    thread_ping.start()
+        
+        if 'tcping_address_alias' in cfg.options('ping'):
+            ping_list = [item.strip() for item in cfg.get('ping', 'tcping_address_alias').split(',')]
+            for ping_key in ping_list:
+                def is_valid_address_format(address):
+                    parts = address.split(':')
+                    alias_host_port = len(parts) == 3 and parts[1].replace('.', '').isalnum() and parts[2].isdigit()
+                    if alias_host_port:
+                        return parts[0], parts[1], int(parts[2])
+                    else:
+                        log.error(f"TCPing address {address} is not in alias:host:port format")
+                        return None
+
+                if is_valid_address_format(ping_key):
+                    alias, host, port = is_valid_address_format(ping_key)
+                    thread_ping = Thread(target=tcping_address, args=(host, port, tcping_time, alias,))
                     thread_ping.start()
         
 
