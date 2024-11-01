@@ -149,7 +149,7 @@ def ping_address(ip_address, ip_time, ip_alias=None, namespace=None):
         log.info(f' 地址: {ip_address} ,丢包率: {packet_loss_rate} Loss zabbix: {ping_loss_zab} ;平均时延: {float(avg_rtt)} ms, Delay zabbix: {ping_rtt_zab}')
 
 
-def tcping_address(host, port, count, timeout=1, host_alias=None, namespace=None):
+def tcping_address(host, port, count, host_alias=None, timeout=1, namespace=None):
     ip_addr, loss_pak, avg_time = tcping(host, port, count, timeout, namespace=namespace)
     
     if ip_addr is False:
@@ -236,7 +236,7 @@ def get_config():
                     if host_port:
                         return parts[0], int(parts[1])
                     else:
-                        log.error(f"TCPing address {value} is not in host:port format")
+                        log.error(f" TCPing address {value} is not in host:port format")
                         return None
 
                 if is_host_port_format(ping_key):
@@ -253,7 +253,7 @@ def get_config():
                     if alias_host_port:
                         return parts[0], parts[1], int(parts[2])
                     else:
-                        log.error(f"TCPing address {address} is not in alias:host:port format")
+                        log.error(f" TCPing address {address} is not in alias:host:port format")
                         return None
 
                 if is_valid_address_format(ping_key):
