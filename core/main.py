@@ -219,7 +219,8 @@ def get_config():
         if 'ping_address_alias' in cfg.options('ping'):
             for ping_alias_key in cfg.get('ping', 'ping_address_alias').split(','):
                 ping_key, ping_value = [item.strip() for item in ping_alias_key.split(':')]
-                thread_ping = Thread(target=ping_address, args=(ping_value, ping_key, ping_time,))
+                # thread_ping = Thread(target=ping_address, args=(ping_value, ping_key, ping_time,))
+                thread_ping = Thread(target=ping_address, args=(ping_value, ping_time, ping_key,))
                 thread_ping.start()
 
         if 'tcping_time' in cfg.options('ping'):
@@ -249,7 +250,8 @@ def get_config():
             for ping_key in ping_list:
                 def is_valid_address_format(address):
                     parts = address.split(':')
-                    alias_host_port = len(parts) == 3 and parts[1].replace('.', '').isalnum() and parts[2].isdigit()
+                    # alias_host_port = len(parts) == 3 and parts[1].replace('.', '').isalnum() and parts[2].isdigit()
+                    alias_host_port = len(parts) == 3 and parts[1].replace('.', '').replace('-', '').isalnum() and parts[2].isdigit()
                     if alias_host_port:
                         return parts[0], parts[1], int(parts[2])
                     else:
