@@ -5,7 +5,7 @@
    # 2. 开始
    ```
    # 互联网公网环境使用
-   git clone https://gitlab.heilvqishi.top:6869/algoblu-public/zabbix.git
+   git clone git@github.com:hlqs-git/zabbix-agent-python.git
    ```
 
    # 3. 初始化
