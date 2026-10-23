@@ -1,19 +1,13 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-import os
+"""Install dependencies with the current Python interpreter."""
+from pathlib import Path
+import subprocess
+import sys
 
-file_path = os.path.dirname(os.path.abspath(__file__))
 
-try:
-    import psutil
-except ImportError or ModuleNotFoundError:
-    
-    print(file_path)
-    os.system(f'pip3 install {file_path}/package/download/psutil-5.9.5.tar.gz')
-    import psutil
+def main():
+    requirements = Path(__file__).resolve().with_name('requirements.txt')
+    return subprocess.call([sys.executable, '-m', 'pip', 'install', '-r', str(requirements)])
 
-try:
-    import pyzabbix
-except ImportError or ModuleNotFoundError:
-    os.system(f'pip3 install {file_path}/package/download/py_zabbix-1.1.7-py3-none-any.whl')
-    import pyzabbix
+
+if __name__ == '__main__':
+    raise SystemExit(main())
