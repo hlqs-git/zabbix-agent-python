@@ -60,7 +60,7 @@ else
 fi
 chmod +x /usr/local/sbin/tcping
 command -v ping >/dev/null && command -v ip >/dev/null || die '缺少 ping/ip'
-/usr/local/sbin/tcping --version >/dev/null 2>&1 || die 'tcping 无法执行，请检查平台和共享库'
+bash "$ROOT/scripts/check-tcping.sh" /usr/local/sbin/tcping || die 'tcping 无法执行，请检查平台和共享库'
 if [[ -n $CONFIG ]]; then
     "$VENV" "$ROOT/start.py" --config "$CONFIG" --check-config
 else

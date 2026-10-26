@@ -9,6 +9,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class OfflineTests(unittest.TestCase):
+    def test_tcping_version_check_uses_supported_flag(self):
+        bash = shutil.which('bash') or ('C:/Workspace/App/Git/bin/bash.exe' if Path('C:/Workspace/App/Git/bin/bash.exe').exists() else None)
+        if not bash:
+            self.skipTest('Bash unavailable')
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'tcping'
+            target.write_text('#!/usr/bin/env bash\nif [[ $1 != -v ]]; then exit 2; fi\necho "TCPING version 2.6.0"\n', encoding='utf-8')
+            target.chmod(0o755)
+            command = [bash, str(ROOT / 'scripts/check-tcping.sh'), str(target)]
+            result = subprocess.run(command, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            target.write_text('#!/usr/bin/env bash\nexit 2\n', encoding='utf-8')
+            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
+
     def test_shell_preflight_rejects_missing_and_wrong_schema(self):
         bash = shutil.which('bash') or ('C:/Workspace/App/Git/bin/bash.exe' if Path('C:/Workspace/App/Git/bin/bash.exe').exists() else None)
         if not bash:

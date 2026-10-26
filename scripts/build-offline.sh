@@ -5,7 +5,9 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 PROFILE=${1:-}
 case "$PROFILE" in
     ubuntu-24.04-amd64) IMAGE=ubuntu:24.04 ;;
-    centos-8.5-x86_64) IMAGE=quay.io/centos/centos:centos8.5.2111 ;;
+    # Existing official CentOS Linux 8 base, pinned to a verified manifest list.
+    # Packages come from the 8.5.2111 archive configured inside the build container.
+    centos-8.5-x86_64) IMAGE=quay.io/centos/centos@sha256:8301d100020ffaedc93f57d8c8bb0e8e88006862bcb48ebc5dfbe1d1cb83060c ;;
     *) echo '用法：bash scripts/build-offline.sh ubuntu-24.04-amd64|centos-8.5-x86_64' >&2; exit 2 ;;
 esac
 command -v docker >/dev/null || { echo '构建需要联网的 Docker 主机；目标安装主机不需要 Docker。' >&2; exit 1; }

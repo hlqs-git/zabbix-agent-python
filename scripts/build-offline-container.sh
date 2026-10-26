@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Only the disposable build container uses UTC; target host timezone is untouched.
+export DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
 [[ -n ${PROFILE:-} && -d /output && -d /project ]] || { echo '请通过 build-offline.sh 调用' >&2; exit 2; }
 mkdir -p /output/wheels /output/bin
 case "$PROFILE" in
@@ -42,7 +44,7 @@ BUILD_PYTHON=/tmp/build-venv/bin/python
 "$BUILD_PYTHON" -m pip install --no-index --find-links /output/wheels -r /project/offline/requirements.in
 "$BUILD_PYTHON" -m pip freeze > /output/requirements.lock
 install -m 0755 /project/package/download/tcping /output/bin/tcping
-/output/bin/tcping --version
+bash /project/scripts/check-tcping.sh /output/bin/tcping
 find /output -type d -empty -delete
 rm -f /output/debs/lock
 "$BUILD_PYTHON" /project/scripts/bundle.py seal /output "$PROFILE"
