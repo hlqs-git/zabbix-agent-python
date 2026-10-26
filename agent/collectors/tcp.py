@@ -2,6 +2,7 @@ import json
 import math
 import subprocess
 from pathlib import Path
+from .command import run_command
 
 
 def parse_tcping(output):
@@ -24,7 +25,7 @@ def tcping(host, port, count=50, timeout=1, namespace=None):
     command = [binary, '-4', '-c', str(count), '-t', str(timeout), '-j', host, str(port)]
     if namespace:
         command = ['ip', 'netns', 'exec', namespace] + command
-    result = subprocess.run(command, capture_output=True, text=True,
+    result = run_command(command, capture_output=True, text=True,
                             timeout=count * (timeout + 1) + 5)
     # Some tcping versions exit nonzero on full loss; valid statistics remain usable.
     try:

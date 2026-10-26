@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+import logging
 from .models import CollectionResult
 
 
@@ -10,6 +11,7 @@ def collect_tasks(tasks, workers):
             try:
                 yield CollectionResult(metrics=future.result())
             except Exception as exc:
+                logging.getLogger('agent.runtime').debug('Collection task failed: %s', futures[future], exc_info=True)
                 yield CollectionResult(errors=['{}: {}: {}'.format(futures[future], type(exc).__name__, exc)])
 
 

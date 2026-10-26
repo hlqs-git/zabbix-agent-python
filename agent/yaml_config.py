@@ -63,9 +63,16 @@ def load_yaml(path):
 
 
 def parse_yaml(data):
-    data = _mapping(data, {'zabbix', 'runtime', 'system', 'interfaces', 'ping', 'tcp'}, '配置')
+    data = _mapping(data, {'zabbix', 'runtime', 'system', 'interfaces', 'ping', 'tcp', 'logging'}, '配置')
     zabbix = _mapping(data.get('zabbix'), {'server', 'hostname', 'port', 'send_timeout_seconds'}, 'zabbix')
     runtime = _mapping(data.get('runtime', {}), {'max_workers'}, 'runtime')
+    log_config = _mapping(data.get('logging', {}), {'level', 'console', 'retention_days'}, 'logging')
+    log_level = _text(log_config.get('level', 'INFO'), 'logging.level').upper()
+    if log_level not in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
+        raise ValueError('logging.level 必须是 DEBUG/INFO/WARNING/ERROR/CRITICAL')
+    log_console = log_config.get('console', True)
+    if type(log_console) is not bool:
+        raise ValueError('logging.console 必须填写 true 或 false，不要加引号')
     system = data.get('system', False)
     if type(system) is not bool:
         raise ValueError('system 必须填写 true 或 false，不要加引号')
@@ -112,12 +119,14 @@ def parse_yaml(data):
                   _integer(zabbix.get('port', 10051), 'zabbix.port', 65535),
                   _text(zabbix.get('hostname'), 'zabbix.hostname'), system, interfaces, probes,
                   _integer(runtime.get('max_workers', 16), 'runtime.max_workers'),
-                  _integer(zabbix.get('send_timeout_seconds', 5), 'zabbix.send_timeout_seconds'))
+                  _integer(zabbix.get('send_timeout_seconds', 5), 'zabbix.send_timeout_seconds'),
+                  log_level, log_console, _integer(log_config.get('retention_days', 14), 'logging.retention_days'))
 
 
 def describe_config(config):
     lines = ['配置检查通过', '', '发送到：{}:{}'.format(config.server, config.port),
-             '主机名：{}'.format(config.hostname), '', '将采集：']
+             '主机名：{}'.format(config.hostname),
+             '日志等级：{}，控制台：{}，历史日志保留 {} 天'.format(config.log_level, config.log_console, config.log_retention_days), '', '将采集：']
     if config.system:
         lines.append('  系统指标：CPU、负载、内存、根分区')
     for target in config.interfaces + config.probes:

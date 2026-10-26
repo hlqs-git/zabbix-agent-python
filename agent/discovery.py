@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 from time import time
 from .models import Metric
+from .audit import event
 
 
 def build_discovery(config):
@@ -52,8 +53,12 @@ class DiscoveryState:
             previous = self.entries.get(self._identity(metric, server, port))
             sent_at = previous.get('sent_at') if isinstance(previous, dict) else None
             valid_time = type(sent_at) in (int, float) and 0 <= sent_at <= now
-            if (not valid_time or previous.get('fingerprint') != self._fingerprint(metric)
-                    or now < sent_at or now - sent_at >= self.HEARTBEAT_SECONDS):
+            changed = not isinstance(previous, dict) or previous.get('fingerprint') != self._fingerprint(metric)
+            due = not valid_time or changed or now - sent_at >= self.HEARTBEAT_SECONDS
+            reason = 'first_or_invalid_cache' if not valid_time else ('changed' if changed else ('heartbeat' if due else 'unchanged'))
+            event(self.logger, logging.INFO if due else logging.DEBUG, 'discovery_decision',
+                  host=metric.host, key=metric.key, reason=reason, due=due, last_sent=sent_at, server=server, port=port)
+            if due:
                 pending.append(metric)
         return pending
 
@@ -71,6 +76,7 @@ class DiscoveryState:
                 json.dump({'version': 1, 'entries': self.entries}, handle, ensure_ascii=False)
             os.replace(temporary, self.path)
             temporary = None
+            event(self.logger, logging.DEBUG, 'discovery_cache_saved', path=str(self.path), rules=len(metrics))
         finally:
             if temporary is not None:
                 try:

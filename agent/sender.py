@@ -1,4 +1,9 @@
 from dataclasses import dataclass
+import logging
+from time import monotonic
+from .audit import event, metric_fields
+
+logger = logging.getLogger('agent.sender')
 
 
 @dataclass
@@ -6,6 +11,7 @@ class SendResult:
     processed: int
     failed: int
     error: str = ''
+    unconfirmed: int = 0
 
     @property
     def ok(self):
@@ -20,16 +26,47 @@ class Sender:
     def send(self, metrics):
         if not metrics:
             return SendResult(0, 0)
+        if logger.isEnabledFor(logging.DEBUG):
+            results = [self._send_batch([metric]) for metric in metrics]
+            return SendResult(sum(result.processed for result in results),
+                              sum(result.failed for result in results),
+                              '; '.join(result.error for result in results if result.error),
+                              sum(result.unconfirmed for result in results))
+        return self._send_batch(metrics)
+
+    def _send_batch(self, metrics):
+        started = monotonic()
+        status = 'not_sent'
+        response_data = None
+        error = ''
         try:
             if self.transport is None:
                 from pyzabbix import ZabbixMetric, ZabbixSender
                 self.transport = ZabbixSender(zabbix_server=self.server, zabbix_port=self.port, timeout=self.timeout)
                 self.metric_factory = ZabbixMetric
             data = [self.metric_factory(m.host, m.key, m.value, m.timestamp) for m in metrics]
+            for metric, wire in zip(metrics, data):
+                event(logger, logging.DEBUG, 'metric_send', **metric_fields(metric),
+                      server=self.server, port=self.port, wire_value=getattr(wire, 'value', str(metric.value)))
+            status = 'unconfirmed'
             response = self.transport.send(data)
-            if response.total != len(data) or response.processed + response.failed != len(data):
-                return SendResult(response.processed, max(1, len(data) - response.processed), 'Incomplete Zabbix response')
-            return SendResult(response.processed, response.failed)
+            event(logger, logging.DEBUG, 'zabbix_response', server=self.server, port=self.port,
+                  metric_ids=[metric_fields(metric)['metric_id'] for metric in metrics], response=repr(response))
+            response_data = {'processed': response.processed, 'failed': response.failed, 'total': response.total}
+            if (any(type(value) is not int or value < 0 for value in response_data.values())
+                    or response.total != len(data) or response.processed + response.failed != len(data)):
+                error = 'Incomplete or invalid Zabbix response'
+                result = SendResult(0, len(data), error, len(data))
+            else:
+                status = 'accepted' if response.failed == 0 else ('rejected' if response.processed == 0 else 'unconfirmed')
+                result = SendResult(response.processed, response.failed)
         except Exception as exc:
             # Delivery may have occurred before the response was lost. Do not retry automatically.
-            return SendResult(0, len(metrics), '{}: {}'.format(type(exc).__name__, exc))
+            error = '{}: {}'.format(type(exc).__name__, exc)
+            logger.debug('Zabbix send exception stack', exc_info=True)
+            result = SendResult(0, len(metrics), error, len(metrics) if status == 'unconfirmed' else 0)
+        for metric in metrics:
+            event(logger, logging.DEBUG, 'metric_delivery', **metric_fields(metric), server=self.server,
+                  port=self.port, status=status, response=response_data, error=error,
+                  elapsed_ms=round((monotonic() - started) * 1000, 3))
+        return result

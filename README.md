@@ -119,6 +119,48 @@ ping:
 
 服务端接收发现数据不保证监控项即时创建，首次运行可能仍有个别指标被拒绝；后续周期再观察。若修改服务端监控项原型而客户端目标未变，最长需等待下一次每小时补发。
 
+## 日志与详细审计
+
+默认 INFO，输出到终端和 `log/agent.log`，按天轮转；启动和轮转时清理超过保留天数的历史文件。可选配置：
+
+```yaml
+logging:
+  level: DEBUG
+  console: true
+  retention_days: 14
+```
+
+支持 DEBUG、INFO、WARNING、ERROR、CRITICAL（大小写不敏感）。旧 INI 可添加同名 `[logging]` 段。临时排障无需修改配置：
+
+```bash
+.venv/bin/python start.py --log-level DEBUG
+```
+
+命令行等级优先于配置；`--check-config --log-level DEBUG` 仅检查，不创建日志、不发送数据。
+
+日志采用每行一条 JSON（JSON Lines），包含带时区的时间、level、run_id、pid、thread、事件名及 fields。每轮运行共享 run_id，每条指标通过 metric_id 关联采集、发送和结果；采集时间另记录为 clock（Unix 秒）。原始命令输出保留在 stdout/stderr 字段，换行被 JSON 转义，不会被截断成独立日志行。旧版本已经写入的文本行不会重写；若要求新文件全为 JSON，请上线前归档旧 agent.log。
+
+DEBUG 包含：
+
+- `collector_start`：目标、别名、Namespace、源 IP 与探测参数。
+- `command_start` / `command_result` / `command_error`：实际参数列表、原始标准输出/错误、退出码、耗时及异常堆栈。
+- `system_raw` / `network_raw`：系统和网卡原始采样值；Namespace 网卡原始 JSON 在 command_result 中。
+- `metric_collected`：每条指标的 host、key、采集值 value、clock、metric_id。
+- `metric_send`：实际发送值 wire_value，以及目标 Server 和端口。
+- `zabbix_response` / `metric_delivery`：服务端响应、结果计数、耗时与逐指标确认状态。
+- `discovery_decision` / `discovery_cache_saved`：首次/变化/心跳/跳过的判断和缓存更新。
+
+| metric_delivery.status | 含义 |
+|---|---|
+| accepted | 收到有效响应，服务端确认处理成功 |
+| rejected | 收到有效响应，服务端明确报告该指标失败 |
+| unconfirmed | 已调用发送，但连接异常、响应丢失或不完整，无法确认是否接收；不自动重发 |
+| not_sent | 在构建数据或初始化发送器阶段失败，尚未调用发送 |
+
+Zabbix 批量响应只有汇总计数，无法定位部分失败中的具体指标。因此 **DEBUG 会逐条发送** 来取得单指标响应，增加连接数量、执行时间和日志量；INFO 等其他等级维持批量发送，记录执行摘要与错误。正常采集仍使用并发，逐指标发送发生在结果汇总阶段。
+
+这份日志可核对“采集了什么、发送了什么、服务端是否确认”，accepted 不代表已经核验服务端数据库持久化或触发器执行；本地轮转文件也不是防篡改存证。需要长期保留审计记录时，应在清理前归档文件。配置解析失败或日志目录本身无法初始化时，错误只输出终端。
+
 ## 旧版 INI 迁移
 
 仍支持 `--config /path/config.ini`，会显示迁移提示。旧格式示例保存在 `conf/config.legacy.example.ini`。未指定路径时，只加载 conf 目录下唯一存在的 `config.yaml`、`config.yml` 或 `config.ini`；若多个文件并存，必须通过 `--config` 指定，避免升级后静默切换目标。
@@ -142,7 +184,7 @@ send_timeout = 5
 - 命令不存在、超时、输出错误记为采集失败，不伪造 100% 丢包，也不发送该目标的错误数值。
 - 自动发现、快速采集和探测结果分批上报；发现发送完成不保证服务端已即时创建监控项，首次运行可能部分失败，需检查后续周期。
 - 网络异常或部分拒收记录失败，不自动重发，避免响应丢失时重复写入。当前不提供持久化补发。
-- 日志为 `log/agent.log`，按天轮转，保留 14 份历史文件。退出码：0 成功或重叠跳过，1 采集/发送/运行失败，2 配置错误或不支持的运行平台。
+- 日志为 `log/agent.log`，等级、控制台输出与历史保留天数可配置。退出码：0 成功或重叠跳过，1 采集/发送/运行失败，2 配置错误或不支持的运行平台。
 
 ## 测试与上线检查
 

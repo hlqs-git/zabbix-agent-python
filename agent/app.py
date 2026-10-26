@@ -2,11 +2,14 @@
 import argparse
 from functools import partial
 import sys
+import logging
+from dataclasses import asdict, replace
 from time import monotonic, time
 
 from .config import ROOT, load_config
 from .discovery import DiscoveryState, build_discovery
-from .logging_setup import setup_logging
+from .logging_setup import LEVELS, setup_logging
+from .audit import event, metric_fields
 from .models import Metric
 from .runtime import collect_tasks, process_lock
 from .sender import Sender
@@ -17,6 +20,7 @@ from .collectors.tcp import tcping
 
 
 def system_metrics(host):
+    event(logging.getLogger('agent.collectors.system'), logging.DEBUG, 'collector_start', kind='system', host=host)
     values = get_system_load()
     names = [('CPU', 'cpu'), ('load_avg_1', 'load_1'), ('load_avg_5', 'load_5'),
              ('load_avg_15', 'load_15'), ('memory', 'mem_used_percent'), ('disk', 'disk_used_percent')]
@@ -25,6 +29,7 @@ def system_metrics(host):
 
 
 def interface_metrics(host, target, snapshot=None):
+    event(logging.getLogger('agent.collectors.network'), logging.DEBUG, 'collector_start', host=host, target=asdict(target))
     values = (get_ns_net_io_counters(target.namespace, target.address) if target.namespace
               else get_net_io_counters(target.address, snapshot))
     timestamp = int(time())
@@ -33,6 +38,7 @@ def interface_metrics(host, target, snapshot=None):
 
 
 def probe_metrics(host, target):
+    event(logging.getLogger('agent.collectors.probe'), logging.DEBUG, 'collector_start', host=host, target=asdict(target))
     if target.kind == 'icmp':
         loss, delay = ping(target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip)
     else:
@@ -45,13 +51,20 @@ def probe_metrics(host, target):
 def run_cycle(config, logger, sender=None, discovery_state_path=None):
     sender = sender or Sender(config.server, config.port, config.send_timeout)
     started = monotonic()
-    processed = failed = errors = 0
+    processed = failed = errors = unconfirmed = 0
+    event(logger, logging.INFO, 'cycle_start', server=config.server, port=config.port, host=config.hostname,
+          system=config.system, interfaces=len(config.interfaces), probes=len(config.probes),
+          workers=config.workers, send_mode='per_metric' if logging.getLogger('agent.sender').isEnabledFor(logging.DEBUG) else 'batch')
 
     def send(metrics):
-        nonlocal processed, failed
+        nonlocal processed, failed, unconfirmed
+        for metric in metrics:
+            event(logger, logging.DEBUG, 'metric_collected', **metric_fields(metric),
+                  kind='discovery' if metric.key.startswith('Zabbix.') else 'measurement')
         result = sender.send(metrics)
         processed += result.processed
         failed += result.failed
+        unconfirmed += getattr(result, 'unconfirmed', 0)
         if not result.ok:
             logger.error('Zabbix send failed: processed=%s failed=%s error=%s', result.processed, result.failed, result.error)
         return result
@@ -91,7 +104,7 @@ def run_cycle(config, logger, sender=None, discovery_state_path=None):
                 logger.error('Collection failed: %s', error)
             pending.extend(result.metrics)
         send(pending)
-    logger.info('Cycle finished: processed=%s failed=%s collection_errors=%s elapsed=%.2fs', processed, failed, errors, monotonic() - started)
+    logger.info('Cycle finished: processed=%s failed=%s unconfirmed=%s collection_errors=%s elapsed=%.2fs', processed, failed, unconfirmed, errors, monotonic() - started)
     return 1 if failed or errors else 0
 
 
@@ -99,9 +112,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Collect Linux metrics and send to Zabbix')
     parser.add_argument('--config', help='YAML 或旧版 INI 配置文件路径')
     parser.add_argument('--check-config', action='store_true', help='Validate configuration without collecting or sending')
+    parser.add_argument('--log-level', type=str.upper, choices=LEVELS, help='临时覆盖日志等级；DEBUG 逐指标发送并记录确认结果')
     args = parser.parse_args(argv)
     try:
         config = load_config(args.config)
+        if args.log_level:
+            config = replace(config, log_level=args.log_level)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -112,13 +128,21 @@ def main(argv=None):
     if not sys.platform.startswith('linux'):
         print('Collection requires Linux; use --check-config on other platforms.', file=sys.stderr)
         return 2
+    logger = None
     try:
-        logger = setup_logging(ROOT / 'log')
+        logger = setup_logging(ROOT / 'log', level=config.log_level, console=config.log_console, retention_days=config.log_retention_days)
+        event(logger, logging.INFO, 'agent_start', config_requested=args.config or 'auto',
+              log_level=config.log_level, console=config.log_console, retention_days=config.log_retention_days)
+        if config.log_level == 'DEBUG':
+            logger.debug('DEBUG audit mode: individual metric requests; increases request count')
         with process_lock(ROOT / 'log/agent.lock') as acquired:
             if not acquired:
                 logger.warning('Previous cycle is still running; skipping')
                 return 0
             return run_cycle(config, logger, discovery_state_path=ROOT / 'log/discovery-state.json')
     except Exception as exc:
-        print('Agent failed: {}: {}'.format(type(exc).__name__, exc), file=sys.stderr)
+        if logger is not None:
+            logger.exception('Agent failed: %s: %s', type(exc).__name__, exc)
+        else:
+            print('Agent failed: {}: {}'.format(type(exc).__name__, exc), file=sys.stderr)
         return 1

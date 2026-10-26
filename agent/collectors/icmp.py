@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 from ipaddress import IPv4Address
+from .command import run_command
 
 
 def parse_ping(output):
@@ -26,7 +27,7 @@ def ping(ip, sec=50, interval='0.25', namespace=None, source_ip=None):
     command.append(ip)
     if namespace:
         command = ['ip', 'netns', 'exec', namespace] + command
-    result = subprocess.run(command, capture_output=True, text=True,
+    result = run_command(command, capture_output=True, text=True,
                             timeout=sec + 5, env=dict(os.environ, LC_ALL='C'))
     if result.returncode not in (0, 1):
         raise ValueError('ping failed: {}'.format(result.stderr.strip()))

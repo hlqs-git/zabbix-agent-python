@@ -21,6 +21,9 @@ class Config:
     probes: List[Target]
     workers: int = 16
     send_timeout: int = 5
+    log_level: str = 'INFO'
+    log_console: bool = True
+    log_retention_days: int = 14
 
 
 def load_config(path=None):
@@ -128,6 +131,10 @@ def _parse(cfg):
     hostname = cfg.get('zabbix conf', 'Hostname').strip()
     if not server or not hostname:
         raise ValueError('Server and Hostname are required')
+    log_level = cfg.get('logging', 'level', fallback='INFO').upper()
+    if log_level not in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
+        raise ValueError('logging.level must be DEBUG/INFO/WARNING/ERROR/CRITICAL')
     return Config(server, validate_port(cfg.get('zabbix conf', 'ServerPort')), hostname,
                   enabled('sys'), interfaces, probes,
-                  positive('runtime', 'workers', 16), positive('runtime', 'send_timeout', 5))
+                  positive('runtime', 'workers', 16), positive('runtime', 'send_timeout', 5),
+                  log_level, cfg.getboolean('logging', 'console', fallback=True), positive('logging', 'retention_days', 14))
