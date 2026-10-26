@@ -43,7 +43,7 @@ class JsonFormatter(logging.Formatter):
             data['fields'] = record.fields
         if record.exc_info:
             data['exception'] = self.formatException(record.exc_info)
-        return json.dumps(data, ensure_ascii=False, default=str)
+        return json.dumps(data, ensure_ascii=False, default=str).replace('\u0085', '\\u0085').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
 
 
 def setup_logging(directory, level='INFO', console=True, retention_days=14, run_id=None):

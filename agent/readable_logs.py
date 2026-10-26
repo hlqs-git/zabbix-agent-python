@@ -7,7 +7,8 @@ from .precision import metric_value
 
 def inline(value):
     text = str(value)
-    return ''.join(char if ord(char) >= 32 and ord(char) != 127 else '\\x{:02x}'.format(ord(char)) for char in text)
+    return ''.join(char if ord(char) >= 32 and ord(char) not in (127, 133, 8232, 8233)
+                   else ('\\x{:02x}' if ord(char) < 128 else '\\u{:04x}').format(ord(char)) for char in text)
 
 
 def clock(value, milliseconds=False):
@@ -41,7 +42,8 @@ class ReadableFormatter(logging.Formatter):
         name = getattr(record, 'event', '')
         title, body = self.describe(name, fields, record)
         timestamp = datetime.fromtimestamp(record.created).astimezone().isoformat(timespec='milliseconds', sep=' ')
-        return '{} [{}] [{}] {}'.format(timestamp, record.levelname, title, body)
+        body = body.replace('\n    ', ' | ').replace('\n', ' | ')
+        return inline('{} [{}] [{}] {}'.format(timestamp, record.levelname, title, body))
 
     def describe(self, name, f, record):
         if name == 'agent_start':
