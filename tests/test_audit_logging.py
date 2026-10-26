@@ -47,7 +47,7 @@ class AuditLoggingTests(unittest.TestCase):
             try:
                 with patch('agent.app.ping', return_value=(0.5, 2.25)):
                     self.assertEqual(run_cycle(cfg, logger, sender), 0)
-                records = [json.loads(line) for line in (Path(directory) / 'agent.log').read_text(encoding='utf-8').splitlines()]
+                records = [json.loads(line) for line in (Path(directory) / 'audit.jsonl').read_text(encoding='utf-8').splitlines()]
                 collected = [record['fields'] for record in records if record['event'] == 'metric_collected']
                 delivered = [record['fields'] for record in records if record['event'] == 'metric_delivery']
                 self.assertEqual(len(collected), 4)
@@ -132,7 +132,7 @@ class AuditLoggingTests(unittest.TestCase):
             logger.info('second event')
             for handler in logger.handlers:
                 handler.flush()
-            records = [json.loads(line) for line in (Path(directory) / 'agent.log').read_text(encoding='utf-8').splitlines()]
+            records = [json.loads(line) for line in (Path(directory) / 'audit.jsonl').read_text(encoding='utf-8').splitlines()]
             self.assertEqual(len(records), 2)
             self.assertEqual(records[0]['run_id'], 'run-one')
             self.assertEqual(records[0]['fields']['value'], 0.5)

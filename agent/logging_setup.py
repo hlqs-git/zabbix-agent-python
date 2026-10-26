@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from logging.handlers import TimedRotatingFileHandler
+from .readable_logs import ReadableFilter, ReadableFormatter
 
 
 LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
@@ -57,20 +58,29 @@ def setup_logging(directory, level='INFO', console=True, retention_days=14, run_
         if getattr(handler, '_agent_owned', False):
             logger.removeHandler(handler)
             handler.close()
-    formatter = JsonFormatter(run_id or uuid4().hex)
-    handler = DailyFileHandler(str(directory / 'agent.log'), when='midnight', backupCount=retention_days, encoding='utf-8')
+    identifier = run_id or uuid4().hex
+    readable = ReadableFormatter(identifier)
+    audit = JsonFormatter(identifier)
     try:
-        for expired in handler.getFilesToDelete():
-            os.remove(expired)
+        for filename, formatter, project in (('agent.log', readable, True), ('audit.jsonl', audit, False)):
+            handler = DailyFileHandler(str(directory / filename), when='midnight', backupCount=retention_days, encoding='utf-8')
+            handler._agent_owned = True
+            handler.setFormatter(formatter)
+            if project:
+                handler.addFilter(ReadableFilter())
+            logger.addHandler(handler)
+            for expired in handler.getFilesToDelete():
+                os.remove(expired)
+        if console:
+            stream = logging.StreamHandler()
+            stream._agent_owned = True
+            stream.setFormatter(readable)
+            stream.addFilter(ReadableFilter())
+            logger.addHandler(stream)
     except Exception:
-        handler.close()
+        for handler in logger.handlers[:]:
+            if getattr(handler, '_agent_owned', False):
+                logger.removeHandler(handler)
+                handler.close()
         raise
-    handlers = [handler]
-    if console:
-        stream = logging.StreamHandler()
-        handlers.append(stream)
-    for handler in handlers:
-        handler._agent_owned = True
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
     return logger

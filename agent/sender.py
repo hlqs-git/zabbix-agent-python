@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import logging
 from time import monotonic
 from .audit import event, metric_fields
+from .precision import metric_value
 
 logger = logging.getLogger('agent.sender')
 
@@ -39,15 +40,18 @@ class Sender:
         status = 'not_sent'
         response_data = None
         error = ''
+        wire_values = [None] * len(metrics)
         try:
             if self.transport is None:
                 from pyzabbix import ZabbixMetric, ZabbixSender
                 self.transport = ZabbixSender(zabbix_server=self.server, zabbix_port=self.port, timeout=self.timeout)
                 self.metric_factory = ZabbixMetric
-            data = [self.metric_factory(m.host, m.key, m.value, m.timestamp) for m in metrics]
-            for metric, wire in zip(metrics, data):
+            values = [metric_value(metric.value) for metric in metrics]
+            data = [self.metric_factory(metric.host, metric.key, value, metric.timestamp) for metric, value in zip(metrics, values)]
+            wire_values = [getattr(wire, 'value', str(value)) for value, wire in zip(values, data)]
+            for metric, wire_value in zip(metrics, wire_values):
                 event(logger, logging.DEBUG, 'metric_send', **metric_fields(metric),
-                      server=self.server, port=self.port, wire_value=getattr(wire, 'value', str(metric.value)))
+                      server=self.server, port=self.port, wire_value=wire_value)
             status = 'unconfirmed'
             response = self.transport.send(data)
             event(logger, logging.DEBUG, 'zabbix_response', server=self.server, port=self.port,
@@ -65,8 +69,8 @@ class Sender:
             error = '{}: {}'.format(type(exc).__name__, exc)
             logger.debug('Zabbix send exception stack', exc_info=True)
             result = SendResult(0, len(metrics), error, len(metrics) if status == 'unconfirmed' else 0)
-        for metric in metrics:
+        for metric, wire_value in zip(metrics, wire_values):
             event(logger, logging.DEBUG, 'metric_delivery', **metric_fields(metric), server=self.server,
-                  port=self.port, status=status, response=response_data, error=error,
+                  port=self.port, status=status, response=response_data, error=error, wire_value=wire_value,
                   elapsed_ms=round((monotonic() - started) * 1000, 3))
         return result

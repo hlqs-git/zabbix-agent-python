@@ -85,7 +85,7 @@ class SenderTests(unittest.TestCase):
             return SimpleNamespace(processed=len(metrics), failed=0, total=len(metrics))
         sender = Sender('server', 10051, transport=SimpleNamespace(send=accept), metric_factory=lambda *args: args)
         self.assertTrue(sender.send([Metric('h', 'a', 0.5, 123), Metric('h', 'b', 2, 124)]).ok)
-        self.assertEqual(batches, [[('h', 'a', 0.5, 123), ('h', 'b', 2, 124)]])
+        self.assertEqual(batches, [[('h', 'a', '0.50', 123), ('h', 'b', 2, 124)]])
 
     def test_concurrency_limit(self):
         active = peak = 0

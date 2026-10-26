@@ -101,10 +101,11 @@ def run_cycle(config, logger, sender=None, discovery_state_path=None):
         for result in collect_tasks(tasks, config.workers):
             errors += len(result.errors)
             for error in result.errors:
-                logger.error('Collection failed: %s', error)
+                event(logger, logging.ERROR, 'collection_failed', error=error)
             pending.extend(result.metrics)
         send(pending)
-    logger.info('Cycle finished: processed=%s failed=%s unconfirmed=%s collection_errors=%s elapsed=%.2fs', processed, failed, unconfirmed, errors, monotonic() - started)
+    event(logger, logging.INFO, 'cycle_end', processed=processed, failed=failed, unconfirmed=unconfirmed,
+          collection_errors=errors, elapsed_seconds=round(monotonic() - started, 2))
     return 1 if failed or errors else 0
 
 
@@ -132,7 +133,8 @@ def main(argv=None):
     try:
         logger = setup_logging(ROOT / 'log', level=config.log_level, console=config.log_console, retention_days=config.log_retention_days)
         event(logger, logging.INFO, 'agent_start', config_requested=args.config or 'auto',
-              log_level=config.log_level, console=config.log_console, retention_days=config.log_retention_days)
+              log_level=config.log_level, console=config.log_console, retention_days=config.log_retention_days,
+              log_path=str(ROOT / 'log/agent.log'), audit_path=str(ROOT / 'log/audit.jsonl'))
         if config.log_level == 'DEBUG':
             logger.debug('DEBUG audit mode: individual metric requests; increases request count')
         with process_lock(ROOT / 'log/agent.lock') as acquired:
