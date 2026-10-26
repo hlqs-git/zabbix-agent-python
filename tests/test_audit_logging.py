@@ -177,10 +177,11 @@ class AuditLoggingTests(unittest.TestCase):
         self.assertEqual(statuses, ['unconfirmed', 'accepted'])
         self.assertEqual(result.unconfirmed, 1)
 
-    def test_raw_ping_output_logged(self):
+    def test_ping_command_metadata_logged_without_full_output(self):
         output = '100% packet loss\n'
         with self.assertLogs('agent', level='DEBUG') as logs, patch('agent.collectors.icmp.subprocess.run', return_value=SimpleNamespace(returncode=1, stdout=output, stderr='')):
             ping('1.1.1.1', 1)
         records = [record for record in logs.records if getattr(record, 'event', None) == 'command_result']
-        self.assertEqual(records[0].fields['stdout'], output)
+        self.assertNotIn('stdout', records[0].fields)
+        self.assertNotIn('stderr', records[0].fields)
         self.assertEqual(records[0].fields['returncode'], 1)

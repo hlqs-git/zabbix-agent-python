@@ -3,6 +3,7 @@ import argparse
 from functools import partial
 import sys
 import logging
+import shlex
 from dataclasses import asdict, replace
 from time import monotonic, time
 
@@ -14,37 +15,52 @@ from .models import Metric
 from .runtime import collect_tasks, process_lock
 from .sender import Sender
 from .collectors.system import get_system_load
-from .collectors.network import get_net_io_counters, get_ns_net_io_counters, network_snapshot
-from .collectors.icmp import ping
-from .collectors.tcp import tcping
+from .collectors.network import get_net_io_counters, get_ns_net_io_counters, network_snapshot, namespace_command
+from .collectors.icmp import ping, ping_command
+from .collectors.tcp import tcping, tcping_command
+
+
+def collect_with_context(context_command, function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except Exception as exc:
+        exc.collection_command = context_command
+        raise
 
 
 def system_metrics(host):
     event(logging.getLogger('agent.collectors.system'), logging.DEBUG, 'collector_start', kind='system', host=host)
-    values = get_system_load()
+    values = collect_with_context('psutil CPU/load/memory/disk APIs', get_system_load)
     names = [('CPU', 'cpu'), ('load_avg_1', 'load_1'), ('load_avg_5', 'load_5'),
              ('load_avg_15', 'load_15'), ('memory', 'mem_used_percent'), ('disk', 'disk_used_percent')]
     timestamp = int(time())
-    return [Metric(host, 'sysload_get[{}]'.format(key), values[field], timestamp) for key, field in names]
+    commands = {'cpu': 'psutil.cpu_percent(interval=1)', 'load_1': 'psutil.getloadavg()[0]',
+                'load_5': 'psutil.getloadavg()[1]', 'load_15': 'psutil.getloadavg()[2]',
+                'mem_used_percent': 'psutil.virtual_memory().percent', 'disk_used_percent': "psutil.disk_usage('/').percent"}
+    return [Metric(host, 'sysload_get[{}]'.format(key), values[field], timestamp, commands[field]) for key, field in names]
 
 
 def interface_metrics(host, target, snapshot=None):
     event(logging.getLogger('agent.collectors.network'), logging.DEBUG, 'collector_start', host=host, target=asdict(target))
-    values = (get_ns_net_io_counters(target.namespace, target.address) if target.namespace
-              else get_net_io_counters(target.address, snapshot))
+    namespace_args = namespace_command(target.namespace, target.address) if target.namespace else None
+    command = shlex.join(namespace_args) if target.namespace else 'psutil.net_io_counters(pernic=True); psutil.net_if_stats()'
+    values = (collect_with_context(command, get_ns_net_io_counters, target.namespace, target.address, command=namespace_args) if target.namespace
+              else collect_with_context(command, get_net_io_counters, target.address, snapshot))
     timestamp = int(time())
-    return [Metric(host, 'IF_get[{},{}]'.format(target.name, field), value, timestamp)
+    return [Metric(host, 'IF_get[{},{}]'.format(target.name, field), value, timestamp, command)
             for field, value in zip(('In_traff', 'Out_traff', 'status'), values)]
 
 
 def probe_metrics(host, target):
     event(logging.getLogger('agent.collectors.probe'), logging.DEBUG, 'collector_start', host=host, target=asdict(target))
     if target.kind == 'icmp':
-        loss, delay = ping(target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip)
+        command = ping_command(target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip)
+        loss, delay = collect_with_context(shlex.join(command), ping, target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip, command=command)
     else:
-        _, loss, delay = tcping(target.address, target.port, target.duration, target.timeout, namespace=target.namespace)
+        command = tcping_command(target.address, target.port, target.duration, target.timeout, namespace=target.namespace)
+        _, loss, delay = collect_with_context(shlex.join(command), tcping, target.address, target.port, target.duration, target.timeout, namespace=target.namespace, command=command)
     timestamp = int(time())
-    return [Metric(host, 'ping_get[{},{}]'.format(target.name, field), value, timestamp)
+    return [Metric(host, 'ping_get[{},{}]'.format(target.name, field), value, timestamp, shlex.join(command))
             for field, value in (('loss', loss), ('delay', delay))]
 
 
@@ -101,7 +117,7 @@ def run_cycle(config, logger, sender=None, discovery_state_path=None):
         for result in collect_tasks(tasks, config.workers):
             errors += len(result.errors)
             for error in result.errors:
-                event(logger, logging.ERROR, 'collection_failed', error=error)
+                event(logger, logging.ERROR, 'collection_failed', error=error, target=result.task, command=result.command)
             pending.extend(result.metrics)
         send(pending)
     event(logger, logging.INFO, 'cycle_end', processed=processed, failed=failed, unconfirmed=unconfirmed,

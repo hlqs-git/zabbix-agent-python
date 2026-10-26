@@ -8,6 +8,7 @@ class Metric:
     key: str
     value: Any
     timestamp: int
+    command: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -26,3 +27,5 @@ class Target:
 class CollectionResult:
     metrics: List[Metric] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
+    task: Optional[str] = None
+    command: Optional[str] = None

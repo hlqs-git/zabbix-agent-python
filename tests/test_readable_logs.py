@@ -60,23 +60,21 @@ class ReadableLoggingTests(unittest.TestCase):
             readable = (Path(directory) / 'agent.log').read_text(encoding='utf-8')
             self.assertIn('上报成功', readable)
             self.assertIn('采集值=45.67', readable)
-            self.assertIn('发送值=45.67', readable)
+            self.assertIn('上报值=45.67', readable)
             self.assertEqual(readable.count('ping_get[dns,delay]'), 1)
             self.assertNotIn('"fields"', console.getvalue())
             records = [json.loads(line) for line in (Path(directory) / 'audit.jsonl').read_text(encoding='utf-8').splitlines()]
             self.assertEqual(len(records), 4)
             self.assertTrue(all(record['run_id'] == 'readable-run' for record in records))
 
-    def test_raw_output_readable_and_audit_unchanged(self):
+    def test_command_events_do_not_clutter_readable_log(self):
         with tempfile.TemporaryDirectory() as directory:
             logger = setup_logging(Path(directory), level='DEBUG', console=False)
             stdout = 'PING 1.1.1.1\n0% packet loss\nrtt min/avg/max/mdev = 1/2/3/4\n'
             event(logger, logging.DEBUG, 'command_result', command=['ping', '1.1.1.1'], stdout=stdout, stderr='', returncode=0, elapsed_ms=1000)
             self.close()
             readable = (Path(directory) / 'agent.log').read_text(encoding='utf-8')
-            self.assertIn('原始输出', readable)
-            self.assertIn('\n    | 0% packet loss', readable)
-            self.assertNotIn('\\n0% packet loss', readable)
+            self.assertEqual(readable, '')
             record = json.loads((Path(directory) / 'audit.jsonl').read_text(encoding='utf-8'))
             self.assertEqual(record['fields']['stdout'], stdout)
 

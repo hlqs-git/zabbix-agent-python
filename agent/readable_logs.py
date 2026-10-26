@@ -1,6 +1,5 @@
 """Human-readable projection. The separate JSON audit sink retains all events."""
 from datetime import datetime
-import json
 import logging
 import shlex
 from .precision import metric_value
@@ -11,15 +10,17 @@ def inline(value):
     return ''.join(char if ord(char) >= 32 and ord(char) != 127 else '\\x{:02x}'.format(ord(char)) for char in text)
 
 
-def clock(value):
+def clock(value, milliseconds=False):
     try:
-        return datetime.fromtimestamp(value).astimezone().strftime('%Y-%m-%d %H:%M:%S%z')
+        moment = datetime.fromtimestamp(value).astimezone()
+        return moment.isoformat(timespec='milliseconds', sep=' ') if milliseconds else moment.strftime('%Y-%m-%d %H:%M:%S%z')
     except (TypeError, ValueError, OSError, OverflowError):
         return inline(value)
 
 
 class ReadableFilter(logging.Filter):
-    HIDDEN = {'metric_collected', 'metric_send', 'zabbix_response', 'system_raw', 'network_raw', 'discovery_cache_saved'}
+    HIDDEN = {'metric_collected', 'metric_send', 'zabbix_response', 'system_raw', 'network_raw', 'discovery_cache_saved',
+              'command_start', 'command_result', 'collector_start'}
 
     def filter(self, record):
         if getattr(record, 'event', None) in self.HIDDEN:
@@ -71,11 +72,9 @@ class ReadableFormatter(logging.Formatter):
             body = '{} | 退出码={} | 耗时={}ms'.format(inline(command), f.get('returncode', '未取得'), f.get('elapsed_ms', '?'))
             if f.get('error'):
                 body += '\n    错误=' + inline(f['error'])
-            for field in ('stdout', 'stderr'):
-                if f.get(field):
-                    output = f[field].decode('utf-8', errors='replace') if isinstance(f[field], bytes) else str(f[field])
-                    body += '\n    {}:\n'.format(field) + '\n'.join('    | ' + inline(line) for line in output.splitlines())
-            return ('执行失败' if name == 'command_error' else '原始输出'), body
+            if f.get('error_summary'):
+                body += '\n    错误摘要=' + inline(f['error_summary'])
+            return ('执行失败' if name == 'command_error' else '命令结果'), body
         if name == 'metric_delivery':
             title = {'accepted': '上报成功', 'rejected': '服务端拒收', 'unconfirmed': '上报未确认', 'not_sent': '尚未发送'}.get(f.get('status'), '上报状态未知')
             wire = f.get('wire_value')
@@ -83,10 +82,11 @@ class ReadableFormatter(logging.Formatter):
                 collected = metric_value(f.get('value'))
             except ValueError:
                 collected = f.get('value')
-            body = '{} | 采集值={} | 发送值={}'.format(inline(f.get('key')), inline(collected), inline(wire) if wire is not None else '未生成')
-            body += '\n    采集时间={} 耗时={}ms 主机={} 指标编号={}'.format(clock(f.get('clock')), f.get('elapsed_ms', '?'), inline(f.get('host', '')), inline(f.get('metric_id', '')))
-            if f.get('response'):
-                body += ' 响应=' + json.dumps(f['response'], ensure_ascii=False)
+            body = '{} | 采集值={} | 上报值={}'.format(inline(f.get('key')), inline(collected), inline(wire) if wire is not None else '未生成')
+            body += '\n    执行命令=' + inline(f.get('command') or '未提供')
+            sent = f.get('sent_at')
+            sent_time = clock(sent, milliseconds=True) if type(sent) in (int, float) else ('未发送' if f.get('status') == 'not_sent' else '未记录')
+            body += '\n    采集时间={} | 上报时间={} | 主机={} | 耗时={}ms'.format(clock(f.get('clock')), sent_time, inline(f.get('host', '')), f.get('elapsed_ms', '?'))
             if f.get('error'):
                 body += '\n    原因=' + inline(f['error'])
             return title, body
@@ -98,10 +98,11 @@ class ReadableFormatter(logging.Formatter):
             return '本轮完成', '确认成功={} 未成功确认={}（其中未确认={}） 采集错误={} 耗时={}秒'.format(
                 f.get('processed'), f.get('failed'), f.get('unconfirmed'), f.get('collection_errors'), f.get('elapsed_seconds'))
         if name == 'collection_failed':
-            return '采集失败', inline(f.get('error'))
+            return '采集失败', '{} | 采集值=未取得 | 上报状态=未发送 | 上报值=无\n    执行命令={}\n    原因={}'.format(
+                inline(f.get('target') or '未提供'), inline(f.get('command') or '未执行或未提供'), inline(f.get('error')))
         message = record.getMessage()
         replacements = {
-            'DEBUG audit mode: individual metric requests; increases request count': 'DEBUG 审计模式：逐条确认上报结果；完整原始事件和堆栈见 audit.jsonl',
+            'DEBUG audit mode: individual metric requests; increases request count': 'DEBUG 审计模式：逐条确认上报结果；结构化关键记录见 audit.jsonl',
             'Discovery unchanged; next heartbeat is due within one hour': '发现集合未变化，最迟一小时后补发',
             'Previous cycle is still running; skipping': '上一轮尚未结束，本轮跳过',
         }

@@ -12,7 +12,8 @@ def collect_tasks(tasks, workers):
                 yield CollectionResult(metrics=future.result())
             except Exception as exc:
                 logging.getLogger('agent.runtime').debug('Collection task failed: %s', futures[future], exc_info=True)
-                yield CollectionResult(errors=['{}: {}: {}'.format(futures[future], type(exc).__name__, exc)])
+                yield CollectionResult(errors=['{}: {}: {}'.format(futures[future], type(exc).__name__, exc)],
+                                       task=futures[future], command=getattr(exc, 'collection_command', None))
 
 
 @contextmanager

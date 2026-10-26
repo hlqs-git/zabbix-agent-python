@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 from ipaddress import IPv4Address
-from .command import run_command
+from .command import error_summary, run_command
 
 
 def parse_ping(output):
@@ -20,15 +20,20 @@ def parse_ping(output):
     return loss, float(rtt.group(1))
 
 
-def ping(ip, sec=50, interval='0.25', namespace=None, source_ip=None):
+def ping_command(ip, sec=50, interval='0.25', namespace=None, source_ip=None):
     command = ['ping', '-w', str(sec), '-i', str(interval), '-q']
     if source_ip is not None:
         command.extend(['-I', str(IPv4Address(source_ip))])
     command.append(ip)
     if namespace:
         command = ['ip', 'netns', 'exec', namespace] + command
+    return command
+
+
+def ping(ip, sec=50, interval='0.25', namespace=None, source_ip=None, command=None):
+    command = ping_command(ip, sec, interval, namespace, source_ip) if command is None else command
     result = run_command(command, capture_output=True, text=True,
                             timeout=sec + 5, env=dict(os.environ, LC_ALL='C'))
     if result.returncode not in (0, 1):
-        raise ValueError('ping failed: {}'.format(result.stderr.strip()))
+        raise ValueError('ping failed: {}'.format(error_summary(result.stderr.strip())))
     return parse_ping(result.stdout)

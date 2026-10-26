@@ -14,7 +14,7 @@ def build_discovery(config):
     for targets, key, macro in ((config.interfaces, 'Zabbix.interface', '{#IFNAME}'),
                                 (config.probes, 'Zabbix.ping.dst_ip', '{#DST_IP}')):
         payload = {'data': [{macro: name} for name in sorted(target.name for target in targets)]}
-        metrics.append(Metric(config.hostname, key, json.dumps(payload, ensure_ascii=False), int(time())))
+        metrics.append(Metric(config.hostname, key, json.dumps(payload, ensure_ascii=False), int(time()), '配置自动发现（无外部命令）'))
     return metrics
 
 

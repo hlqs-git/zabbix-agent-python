@@ -11,4 +11,5 @@ def event(logger, level, name, **fields):
 def metric_fields(metric):
     identity = json.dumps([metric.host, metric.key, metric.value, metric.timestamp], ensure_ascii=False, default=str)
     return {'metric_id': hashlib.sha256(identity.encode('utf-8')).hexdigest()[:20],
-            'host': metric.host, 'key': metric.key, 'value': metric.value, 'clock': metric.timestamp}
+            'host': metric.host, 'key': metric.key, 'value': metric.value, 'clock': metric.timestamp,
+            'command': metric.command}

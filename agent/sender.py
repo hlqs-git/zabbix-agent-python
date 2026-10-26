@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import logging
-from time import monotonic
+from time import monotonic, time
 from .audit import event, metric_fields
 from .precision import metric_value
 
@@ -41,6 +41,7 @@ class Sender:
         response_data = None
         error = ''
         wire_values = [None] * len(metrics)
+        sent_at = acknowledged_at = None
         try:
             if self.transport is None:
                 from pyzabbix import ZabbixMetric, ZabbixSender
@@ -53,7 +54,9 @@ class Sender:
                 event(logger, logging.DEBUG, 'metric_send', **metric_fields(metric),
                       server=self.server, port=self.port, wire_value=wire_value)
             status = 'unconfirmed'
+            sent_at = time()
             response = self.transport.send(data)
+            acknowledged_at = time()
             event(logger, logging.DEBUG, 'zabbix_response', server=self.server, port=self.port,
                   metric_ids=[metric_fields(metric)['metric_id'] for metric in metrics], response=repr(response))
             response_data = {'processed': response.processed, 'failed': response.failed, 'total': response.total}
@@ -72,5 +75,6 @@ class Sender:
         for metric, wire_value in zip(metrics, wire_values):
             event(logger, logging.DEBUG, 'metric_delivery', **metric_fields(metric), server=self.server,
                   port=self.port, status=status, response=response_data, error=error, wire_value=wire_value,
+                  sent_at=sent_at, acknowledged_at=acknowledged_at,
                   elapsed_ms=round((monotonic() - started) * 1000, 3))
         return result

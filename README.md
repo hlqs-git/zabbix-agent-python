@@ -123,7 +123,7 @@ ping:
 
 ## 日志与详细审计
 
-默认 INFO。终端和 `log/agent.log` 输出中文可读日志，`log/audit.jsonl` 保存结构化审计事件；两份文件均按天轮转，启动和轮转时清理超过保留天数的历史文件。等级作用于两份日志，完整原始数据需使用 DEBUG。可选配置：
+默认 INFO。终端和 `log/agent.log` 输出中文关键指标日志，`log/audit.jsonl` 保存结构化审计事件；两份文件均按天轮转，启动和轮转时清理超过保留天数的历史文件。等级作用于两份日志，逐指标信息需使用 DEBUG。可选配置：
 
 ```yaml
 logging:
@@ -140,23 +140,23 @@ logging:
 
 命令行等级优先于配置；`--check-config --log-level DEBUG` 仅检查，不创建日志、不发送数据。
 
-可读日志按“启动→本轮任务→采集→上报结果→本轮完成”显示。每条指标只显示一个结果块，合并 key、采集值、发送值、采集时间、耗时和结果，不反复打印 collected/send/response 三份重复信息。命令的 stdout/stderr 用缩进原样展开，便于核对 Ping 统计；完整系统采样结构和异常堆栈放在审计文件中。
+每条指标只显示一个结果块：日志时间、key、采集值、执行命令、采集时间、上报时间、上报值和状态。上报时间是在调用发送器前记录的实际时间，不使用日志时间代替。系统/普通网卡使用 psutil，没有 Shell 命令，因此记录实际采集 API；Namespace 和源 IP 均包含在对应探测命令中。不再展开 Ping/TCPing 逐包输出、整段统计或全量系统结构。
 
 ```text
-2026-10-26 13:57:59.391+08:00 [DEBUG] [上报成功] ping_get[dns,delay] | 采集值=45.67 | 发送值=45.67
-    采集时间=2026-10-26 13:57:59+0800 耗时=20.973ms 主机=linux-01 指标编号=...
+2026-10-26 13:57:59.391+08:00 [DEBUG] [上报成功] ping_get[dns,delay] | 采集值=45.67 | 上报值=45.67
+    执行命令=ping -w 50 -i 0.25 -q 1.1.1.1
+    采集时间=2026-10-26 13:57:59+0800 | 上报时间=2026-10-26 13:57:59.370+08:00 | 主机=linux-01 | 耗时=20.973ms
 ```
 
-`audit.jsonl` 仍采用每行一条 JSON（JSON Lines），包含带时区的时间、level、run_id、pid、thread、事件名及 fields，保留全部原始事件，不受可读视图的去重过滤影响。每轮共享 run_id，每条指标通过 metric_id 关联采集、发送和结果；采集时间为 clock（Unix 秒）。原始 stdout/stderr 完整保存，换行被 JSON 转义。可读日志首行显示完整运行编号和两份日志路径，便于交叉查询。旧版本已经写入 agent.log 的 JSON 或文本行保留，不自动重写。
+`audit.jsonl` 采用每行一条 JSON，包含带时区的时间、level、run_id、pid、thread、事件名及 fields。每轮共享 run_id，每条指标通过 metric_id 关联采集、发送和结果；clock 为采集时间，sent_at 为开始上报时间，acknowledged_at 为响应返回时间（均为 Unix 秒）。value 保留解析后原始数值，wire_value 是实际发送值。命令结果只记录命令、退出码、耗时和最多 512 字符的错误摘要，不再记录完整 stdout/stderr；异常堆栈仍可用于定位失败。旧日志不自动回写清理。
 
 DEBUG 审计文件包含：
 
 - `collector_start`：目标、别名、Namespace、源 IP 与探测参数。
-- `command_start` / `command_result` / `command_error`：实际参数列表、原始标准输出/错误、退出码、耗时及异常堆栈。
-- `system_raw` / `network_raw`：系统和网卡原始采样值；Namespace 网卡原始 JSON 在 command_result 中。
-- `metric_collected`：每条指标的 host、key、采集值 value、clock、metric_id。
+- `command_start` / `command_result` / `command_error`：实际参数列表、退出码、耗时和短错误摘要；不含整段原始输出。
+- `metric_collected`：每条指标的 host、key、采集命令/API、采集值 value、clock、metric_id。
 - `metric_send`：实际发送值 wire_value，以及目标 Server 和端口。
-- `zabbix_response` / `metric_delivery`：服务端响应、结果计数、耗时与逐指标确认状态。
+- `zabbix_response` / `metric_delivery`：服务端响应、结果计数、耗时、sent_at/acknowledged_at 和逐指标确认状态；没有实际发送时 sent_at 为空。
 - `discovery_decision` / `discovery_cache_saved`：首次/变化/心跳/跳过的判断和缓存更新。
 
 | metric_delivery.status | 含义 |
