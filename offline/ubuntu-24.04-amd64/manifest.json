@@ -1,0 +1,14 @@
+{
+  "schema": 2,
+  "profile": "ubuntu-24.04-amd64",
+  "python": "3.12",
+  "files": {
+    "bundle.meta": "818a52f02a5c771c5b845e6872f77c6f1e087c0fca4d53ee7e4df176c0e33c28",
+    "requirements.lock": "3a03e35c767b506ef5d6250386ce65b1d5bef28f831e6d46fac31217e50c4391",
+    "wheels/pip-25.1.1-py3-none-any.whl": "2913a38a2abf4ea6b64ab507bd9e967f3b53dc1ede74b01b0931e1ce548751af",
+    "wheels/psutil-5.9.8-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "d06016f7f8625a1825ba3732081d77c94589dca78b7a3fc072194851e88461a4",
+    "wheels/py_zabbix-1.1.7-py3-none-any.whl": "f921abc88298c56f5aab9054815122ca959f8612df88fdc3a240ad2d95e4c282",
+    "wheels/PyYAML-6.0.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "80bab7bfc629882493af4aa31a4cfa43a4c57c83813253626916b8c7ada83476"
+  },
+  "tcping_sha256": "6afbe8ab1e6fbc15333d50cfad511294a772548253742270019aa759ecb2b399"
+}

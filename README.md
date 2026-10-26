@@ -4,37 +4,41 @@
 
 ## 安装和运行
 
-统一离线安装入口：`bash install.sh`。计划覆盖 Ubuntu 24.04 amd64 和 CentOS Linux 8.5 x86_64，系统包和 Python wheels 随项目放在 `offline/<平台>/` 内。
+采用轻量离线安装：项目只携带 Python wheels、pip 引导包和一份 tcping，不包含系统 deb/rpm。目标主机需要先具备系统 Python、venv、ping 和 ip。基础工具齐备后，安装应用依赖的整个过程不访问互联网。
 
-**当前完整系统包尚未构建和断网验收，暂不能把此分支作为开箱即用的离线安装包交付。** 两平台的 Python wheels 已内置；完整构建和交付状态见 [offline/README.md](offline/README.md)。最终用户只需整个项目，不需要自己再下载包；维护者需要先在联网 Docker 主机完成一次构建。
+### 1. 管理员准备基础环境（仅一次）
+
+Ubuntu 24.04 amd64：
 
 ```bash
-# 维护者：在联网 Docker 主机准备项目内完整依赖并执行断网验收
-bash scripts/build-offline.sh ubuntu-24.04-amd64
-bash scripts/build-offline.sh centos-8.5-x86_64
-
-# 最终用户：拿到完整项目后，在对应离线 Linux 主机执行
-bash install.sh
+sudo apt-get update
+sudo apt-get install -y python3.12 python3.12-venv iputils-ping iproute2 ca-certificates
 ```
 
-脚本不覆盖配置、不添加 cron、不启动采集。`python3 init.py` 现为统一安装器的兼容入口。下面的手工方式仍可用于联网部署和排查。
-
-运行环境：Linux、Python 3.8 及以上。Python 3.13 等较新版本建议使用有对应 wheel 的新版 psutil，不使用仓库内旧 psutil 源码包。
+CentOS Linux 8.5 x86_64：
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+sudo dnf install -y python39 python39-pip iputils iproute ca-certificates
+```
 
-# TCP 探测沿用原 tcping 二进制；需确认其架构和操作系统兼容
-chmod +x package/download/tcping
-ln -s /absolute/path/zabbix-agent-python/package/download/tcping /usr/local/sbin/tcping
+CentOS 需要可用的归档源或内网软件源，安装脚本不自动修改软件源。必须使用 Python 3.9，系统自带的 3.6 不适用此离线包。完全隔离的主机需由管理员预装这些基础工具；项目不负责离线安装操作系统组件。
 
+### 2. 安装项目并核对配置
+
+```bash
+bash install.sh
+# 修改配置后再检查、启动
 .venv/bin/python start.py --check-config
 .venv/bin/python start.py
+# 或选择其他配置
 .venv/bin/python start.py --config /absolute/path/custom.yaml
 ```
 
-Ubuntu 24.04 手工安装前先执行 `apt-get update && apt-get install -y python3-venv iputils-ping iproute2`。若此前创建 `.venv` 失败，安装 venv 系统包后重新执行 `python3 -m venv .venv`，再安装 requirements；系统包安装不会自动修复已有的半成品虚拟环境。
+无需 root 即可安装项目（项目目录需要可写）。安装器检查基础工具和离线包完整性，然后创建或修复 `.venv`，仅从本地 wheels 安装 Python 库，把内置 tcping 复制到 `.venv/bin/tcping`。不覆盖配置、不写系统目录、不添加 cron、不启动采集。`python3 init.py` 保留为兼容入口。
+
+如果缺少基础工具，脚本会列出缺失项及相应安装命令；如果 `.venv` 使用了其他 Python 版本，会要求先备份并移出旧环境。无需给系统 python 创建软链接，也无需给 tcping 创建系统软链接。
+
+项目已内置两个平台的 Python 离线库和校验清单，总共约 15 MB（含一份 tcping，不计 Git 历史和运行时 .venv）。详细包结构、维护者准备方式和可选断网验收见 [offline/README.md](offline/README.md)。尚未在真实 Linux/Docker 环境完成新版安装验收，本地测试不替代实际安装验证。
 
 首次使用修改 `conf/config.yaml`：填写 `zabbix.server` 和 `zabbix.hostname`，再修改需要监控的网卡、Ping、TCP 目标；不需要的项目直接删除。hostname 必须对应 Zabbix 主机的技术名称。默认文件中的地址和接口仅为示例，请按实际环境修改。启动路径不依赖当前工作目录，无需创建系统 python 软链接。
 

@@ -1,28 +1,55 @@
-# 项目内置离线依赖
+# 轻量离线依赖
 
-目标：ubuntu-24.04-amd64（Python 3.12）、centos-8.5-x86_64（Python 3.9）。CentOS 指 CentOS Linux 8.5.2111，不包含 Stream、Rocky 或 AlmaLinux。
+目标：Ubuntu 24.04 amd64 / Python 3.12、CentOS Linux 8.5 x86_64 / Python 3.9。只携带应用依赖，不包含操作系统组件。
 
-**当前状态：尚未生成并验收完整系统离线包。没有 VALIDATED 的目录不能作为开箱即用包交付。** 构建需在有 Docker 的联网维护者机器执行。最终用户获得构建后的整个项目，离线机器不需下载依赖、不需 Docker。
+## 随项目提供
+
+- `ubuntu-24.04-amd64/wheels`：Python 3.12 的 Linux wheels。
+- `centos-8.5-x86_64/wheels`：Python 3.9 的 Linux wheels。
+- 每个平台的 `requirements.lock`、`manifest.json`、`SHA256SUMS`、`bundle.meta`。
+- `package/download/tcping`：两个平台共享一份二进制，校验值记录在每份 manifest 中。
+
+包含 pip 25.1.1、psutil 5.9.8、py-zabbix 1.1.7、PyYAML 6.0.2；上述版本不需要其他 Python 运行依赖。新增依赖时准备工具会一并下载其间接依赖。SHA256 用来检查文件损坏，不代替来源认证。
+
+## 基础环境
+
+Ubuntu 由管理员预装 `python3.12 python3.12-venv iputils-ping iproute2 ca-certificates`；CentOS 预装 `python39 python39-pip iputils iproute ca-certificates`。CentOS 自带 Python 3.6 不用于本项目。项目不会安装系统包或改软件源。
+
+目标主机执行 `bash install.sh` 即可安装项目依赖；不需要 Docker，不需要 cmp，不要求全局安装 pip，不向 `/usr/local/sbin` 写入文件。配置、cron 和采集启动由用户自己管理。
+
+## 维护者准备离线库
+
+升级依赖版本前，先将对应平台原来的 wheels 目录备份并移出项目，再准备新版本，避免同一库的新旧 wheel 混用。准备工具遇到重复发行版会拒绝生成交付清单，不会自动删除已有包。
+
+提供的 wheels 已在项目中，无需用户再构建或下载。维护者升级库时可在有 pip 的联网机器执行（支持 Windows/Linux，始终下载目标 Linux 架构的 wheel）：
 
 ```bash
-bash scripts/build-offline.sh ubuntu-24.04-amd64
-bash scripts/build-offline.sh centos-8.5-x86_64
+python3 scripts/prepare-wheels.py ubuntu-24.04-amd64
+python3 scripts/prepare-wheels.py centos-8.5-x86_64
 ```
 
-脚本把系统依赖闭包、所有 Python wheels、pip 引导包、tcping、版本清单和 SHA256 写入本目录的平台子目录，再启动干净且断网的容器验证首次安装、重复安装及测试。通过后才创建 VALIDATED。发布时携带完整项目，包括这些二进制文件，不应只发布脚本、Git LFS 指针或下载链接。
-
-目标机器（root）：
+已有完整 wheel 文件时，不联网重新生成清单：
 
 ```bash
-bash install.sh
+python3 scripts/prepare-wheels.py ubuntu-24.04-amd64 --seal-only
+python3 scripts/prepare-wheels.py centos-8.5-x86_64 --seal-only
 ```
 
-仅使用项目内依赖；安装失败不会尝试联网。会安装缺失系统包并可能更新它们的依赖，不修改系统软件源，不使用 --nodeps，不覆盖配置，不创建 cron、不启动采集。不同的已有 tcping 会导致明确报错。
+`bash scripts/build-offline.sh <平台>` 是上述准备命令的兼容包装，不再启动 Docker、不再下载系统包。生成清单会使旧 VALIDATED 验收记录失效，安装器不以该标记作为门槛。
 
-系统包版本在 Ubuntu 更新仓库变化后可能不同，构建时生成的 manifest/requirements.lock 才是该包的实际版本；必须同时保留构建日志及基础镜像版本。CentOS 8.5 使用归档源，较早 8.x 系统需先在克隆环境验证本地依赖升级。
+可选真实断网验收（仅维护者，需要联网 Docker）：
 
-CentOS 构建基础镜像使用官方 Quay `centos8` 标签对应的固定摘要，系统包从 8.5.2111 归档下载，不依赖不存在的 `centos8.5.2111` 镜像标签。tcping 版本检查使用内置 2.6.0 支持的 `-v`。构建中断且未生成 VALIDATED 时可保留下载文件，修复后重新运行同一构建命令。
+```bash
+bash scripts/validate-offline.sh ubuntu-24.04-amd64
+bash scripts/validate-offline.sh centos-8.5-x86_64
+```
 
-SHA256 检测传输损坏，不替代发布来源认证。VALIDATED 是构建流程的验收记录，不是第三方认证。
+验证脚本先在测试镜像中联网安装文档规定的基础环境，然后断网测试应用首次安装、重复安装和测试集。系统包只进入 Docker 测试镜像，不写入项目目录。通过后生成可选 VALIDATED 记录。
 
-`bundle.meta`（格式版本、平台、Python 版本）与 `SHA256SUMS` 是安装前可在无 Python 主机上检查的权威清单；`manifest.json` 是供维护者查看的辅助报告。所有安装所需文件先通过独立 `scripts/check-bundle.sh` 检查，再调用系统包管理器。
+## 从旧版全量包迁移
+
+旧构建生成的 `debs/`、`rpms/` 和平台目录中的 `bin/` 不再需要，应先移出项目目录；不要带入新版轻量包。原 `package/download/tcping` 保留。
+
+已经在构建主机产生旧版未跟踪清单的，应先把旧平台输出目录备份到项目外，避免 git pull 时未跟踪文件与新版清单冲突。也可以另建目录克隆新版，迁移自己的 conf 配置；旧包留在原目录直到确认不再使用。
+
+当前 schema 为 2，旧 schema 1 的系统全量包不被新版安装器接受。原来的基础环境无需卸载；重新执行新版安装器会复用已安装的 Python、ping 和 ip。

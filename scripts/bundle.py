@@ -40,30 +40,42 @@ def inventory(root):
 
 
 def seal(root, profile):
-    directory, extension, python = PROFILES[profile]
-    write_text(root / 'bundle.meta', '1 {} {}\n'.format(profile, python))
+    if (root / 'VALIDATED').exists():
+        (root / 'VALIDATED').unlink()
+    python = PROFILES[profile][2]
+    write_text(root / 'bundle.meta', '2 {} {}\n'.format(profile, python))
     files = inventory(root)
-    if not any(name.startswith(directory + '/') and name.endswith(extension) for name in files):
-        raise ValueError('Missing system packages for {}'.format(profile))
+    if any(name.startswith(('debs/', 'rpms/', 'bin/')) or name.endswith(('.deb', '.rpm')) for name in files):
+        raise ValueError('Lightweight bundle must not contain system packages or duplicate binaries; move old debs/rpms/bin outside the project')
     for prefix in ('pip-', 'psutil-', 'py_zabbix-', 'pyyaml-'):
         if not any(name.lower().startswith('wheels/' + prefix) and name.endswith('.whl') for name in files):
             raise ValueError('Missing wheel: ' + prefix)
-    if 'bin/tcping' not in files or 'requirements.lock' not in files:
-        raise ValueError('Missing tcping or requirements.lock')
-    manifest = {'schema': 1, 'profile': profile, 'python': python, 'files': files}
+    binary = root.parent.parent / 'package/download/tcping'
+    if not binary.is_file() or 'requirements.lock' not in files:
+        raise ValueError('Missing shared package/download/tcping or requirements.lock')
+    manifest = {'schema': 2, 'profile': profile, 'python': python, 'files': files,
+                'tcping_sha256': hashlib.sha256(binary.read_bytes()).hexdigest()}
     write_text(root / 'manifest.json', json.dumps(manifest, indent=2) + '\n')
     files['manifest.json'] = hashlib.sha256((root / 'manifest.json').read_bytes()).hexdigest()
     write_text(root / 'SHA256SUMS', ''.join('{}  {}\n'.format(digest, name) for name, digest in sorted(files.items())))
 
 
-def verify(root, profile):
+def verify(root, profile, tcping=None):
     manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
-    if manifest.get('schema') != 1 or manifest.get('profile') != profile:
+    if manifest.get('schema') != 2 or manifest.get('profile') != profile:
         raise ValueError('Bundle platform/schema mismatch')
     if inventory(root) != manifest['files']:
         raise ValueError('Bundle missing, extra or modified files')
-    if (root / 'bundle.meta').read_text(encoding='utf-8') != '1 {} {}\n'.format(profile, PROFILES[profile][2]):
+    if (root / 'bundle.meta').read_text(encoding='utf-8') != '2 {} {}\n'.format(profile, PROFILES[profile][2]):
         raise ValueError('Unsupported bundle metadata')
+    binary = Path(tcping) if tcping is not None else root.parent.parent / 'package/download/tcping'
+    if not binary.is_file() or hashlib.sha256(binary.read_bytes()).hexdigest() != manifest.get('tcping_sha256'):
+        raise ValueError('Shared tcping missing or modified')
+    files = dict(manifest['files'])
+    files['manifest.json'] = hashlib.sha256((root / 'manifest.json').read_bytes()).hexdigest()
+    expected = ''.join('{}  {}\n'.format(digest, name) for name, digest in sorted(files.items()))
+    if (root / 'SHA256SUMS').read_text(encoding='utf-8') != expected:
+        raise ValueError('Checksum list mismatch')
 
 
 def main():
@@ -71,6 +83,7 @@ def main():
     parser.add_argument('action', choices=('seal', 'verify', 'detect'))
     parser.add_argument('root', nargs='?', type=Path)
     parser.add_argument('profile', nargs='?', choices=PROFILES)
+    parser.add_argument('--tcping', type=Path, help='Actual shared binary to verify when the bundle is relocated')
     args = parser.parse_args()
     if args.action == 'detect':
         info = {}
@@ -82,7 +95,10 @@ def main():
     elif args.root is None or args.profile is None:
         parser.error('root and profile are required')
     else:
-        {'seal': seal, 'verify': verify}[args.action](args.root, args.profile)
+        if args.action == 'verify':
+            verify(args.root, args.profile, tcping=args.tcping)
+        else:
+            seal(args.root, args.profile)
 
 
 if __name__ == '__main__':

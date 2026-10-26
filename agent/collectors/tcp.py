@@ -1,6 +1,7 @@
 import json
 import math
 import subprocess
+from pathlib import Path
 
 
 def parse_tcping(output):
@@ -18,7 +19,9 @@ def parse_tcping(output):
 
 
 def tcping(host, port, count=50, timeout=1, namespace=None):
-    command = ['/usr/local/sbin/tcping', '-4', '-c', str(count), '-t', str(timeout), '-j', host, str(port)]
+    local_binary = Path(__file__).resolve().parents[2] / '.venv/bin/tcping'
+    binary = str(local_binary) if local_binary.is_file() else '/usr/local/sbin/tcping'
+    command = [binary, '-4', '-c', str(count), '-t', str(timeout), '-j', host, str(port)]
     if namespace:
         command = ['ip', 'netns', 'exec', namespace] + command
     result = subprocess.run(command, capture_output=True, text=True,
