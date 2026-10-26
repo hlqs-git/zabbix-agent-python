@@ -1,5 +1,6 @@
-"""Parse legacy INI options into validated collection targets."""
+"""Select YAML or legacy INI and normalize collection targets."""
 import ast
+import warnings
 from configparser import ConfigParser, Error
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,9 +24,22 @@ class Config:
 
 
 def load_config(path=None):
+    if path is None:
+        candidates = [ROOT / 'conf' / name for name in ('config.yaml', 'config.yml', 'config.ini')]
+        existing = [candidate for candidate in candidates if candidate.is_file()]
+        if len(existing) > 1:
+            raise ValueError('发现多个配置文件，请使用 --config 明确指定：' + ', '.join(str(p) for p in existing))
+        path = existing[0] if existing else candidates[0]
+    path = Path(path)
+    if path.suffix.lower() in ('.yaml', '.yml'):
+        from .yaml_config import load_yaml
+        return load_yaml(path)
+    if path.suffix.lower() != '.ini':
+        raise ValueError('配置文件扩展名必须是 .yaml、.yml 或 .ini')
+    warnings.warn('正在读取旧版 INI 配置；建议参考 conf/config.example.yaml 迁移到 YAML。', FutureWarning, stacklevel=2)
     cfg = ConfigParser(interpolation=None)
     try:
-        with Path(path or ROOT / 'conf/config.ini').open(encoding='utf-8-sig') as source:
+        with path.open(encoding='utf-8-sig') as source:
             cfg.read_file(source)
         return _parse(cfg)
     except (Error, OSError, SyntaxError, TypeError) as exc:

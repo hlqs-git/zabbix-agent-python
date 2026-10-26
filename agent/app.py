@@ -84,7 +84,7 @@ def run_cycle(config, logger, sender=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Collect Linux metrics and send to Zabbix')
-    parser.add_argument('--config', help='INI configuration path')
+    parser.add_argument('--config', help='YAML 或旧版 INI 配置文件路径')
     parser.add_argument('--check-config', action='store_true', help='Validate configuration without collecting or sending')
     args = parser.parse_args(argv)
     try:
@@ -93,7 +93,8 @@ def main(argv=None):
         print(str(exc), file=sys.stderr)
         return 2
     if args.check_config:
-        print('Configuration OK: {} interfaces, {} probes'.format(len(config.interfaces), len(config.probes)))
+        from .yaml_config import describe_config
+        print(describe_config(config))
         return 0
     if not sys.platform.startswith('linux'):
         print('Collection requires Linux; use --check-config on other platforms.', file=sys.stderr)

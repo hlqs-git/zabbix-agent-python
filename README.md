@@ -17,10 +17,12 @@ ln -s /absolute/path/zabbix-agent-python/package/download/tcping /usr/local/sbin
 
 .venv/bin/python start.py --check-config
 .venv/bin/python start.py
-.venv/bin/python start.py --config /absolute/path/custom.ini
+.venv/bin/python start.py --config /absolute/path/custom.yaml
 ```
 
-修改 `conf/config.ini` 中的 Server、ServerPort、Hostname 和采集目标。Hostname 必须对应 Zabbix 主机的技术名称。启动路径不依赖当前工作目录，无需创建系统 python 软链接。
+首次使用修改 `conf/config.yaml`：填写 `zabbix.server` 和 `zabbix.hostname`，再修改需要监控的网卡、Ping、TCP 目标；不需要的项目直接删除。hostname 必须对应 Zabbix 主机的技术名称。默认文件中的地址和接口仅为示例，请按实际环境修改。启动路径不依赖当前工作目录，无需创建系统 python 软链接。
+
+先执行 `--check-config` 核对连接信息、监控目标、别名和探测参数，再运行采集。配置检查不会连接 Zabbix 或执行探测；检查通过不代表接口存在、目标可达或服务端接收成功。YAML 缩进使用空格，不使用 Tab。
 
 依赖系统命令 `ping`（iputils）、`ip`（iproute2）和启用 TCP 时的 tcping。Namespace 使用 `ip -j -s link`，要求 iproute2 支持 JSON 输出。执行 Namespace 命令通常需要 root 或对应权限；普通 ping 权限取决于发行版配置。运行用户需能写入项目的 log 目录。
 
@@ -30,7 +32,7 @@ cron 示例：
 * * * * * /absolute/path/zabbix-agent-python/.venv/bin/python /absolute/path/zabbix-agent-python/start.py
 ```
 
-程序每次执行一轮后退出。Linux 文件锁防止同一项目目录的任务重叠，旧任务未结束时新实例跳过；不要删除运行中的 `log/agent.lock`。探测次数、超时和目标数量应与 cron 周期匹配，线程池排队也会增加整轮耗时。默认 ICMP 为 50 秒，TCP 为 50 次；TCP 最坏耗时可能超过一分钟，锁会避免重叠但可能跳过下轮。
+程序每次执行一轮后退出。Linux 文件锁防止同一项目目录的任务重叠，旧任务未结束时新实例跳过；不要删除运行中的 `log/agent.lock`。探测次数、超时和目标数量应与 cron 周期匹配，线程池排队也会增加整轮耗时。YAML 默认 ICMP 为 50 秒，TCP 为 10 次；旧 INI 默认 TCP 仍为 50 次。整轮超过执行周期时会跳过下轮。
 
 ## 结构
 
@@ -43,9 +45,47 @@ cron 示例：
 - `start.py`、`core/main.py`：保留启动入口。
 - `package/*.py`：旧采集与单指标发送接口的兼容包装；core/main.py 原内部辅助函数不再作为接口提供。
 
-## 配置兼容和行为变化
+## 配置方法
 
-已有 INI 功能开关、网卡别名、Namespace 及监控 key 保留。新增可选配置：
+`conf/config.yaml` 只放常用配置，`conf/config.example.yaml` 展示高级字段；后者不会自动加载。每个目标一条记录，写了就监控，删除该项或填写 `[]` 就不监控，不需要单独设置开关。`system: true` 开启系统指标，false 或省略表示关闭。
+
+```yaml
+zabbix:
+  server: zabbix.example.com
+  hostname: linux-01
+
+system: true
+interfaces:
+  - device: eth0
+ping:
+  - address: 1.1.1.1
+tcp:
+  - address: example.com
+    port: 443
+```
+
+可选参数：
+
+| 位置 | 字段 | 默认值或含义 |
+|---|---|---|
+| zabbix | port | 10051 |
+| zabbix | send_timeout_seconds | 5 秒，每次发送的 socket 超时 |
+| runtime | max_workers | 16，最大并发任务数 |
+| 任意目标 | name | 可选监控别名；省略时使用 device 或 address |
+| 任意目标 | namespace | 可选 Linux network namespace；省略时为普通目标 |
+| ping 目标 | duration_seconds | 50 秒，每轮探测持续时间 |
+| tcp 目标 | count | 10 次，每轮探测次数 |
+| tcp 目标 | connect_timeout_seconds | 1 秒，单次连接超时 |
+
+TCP 最终监控名称由 `name`（或 address）加 `:port` 生成，例如 `web:443`，不要在 name 中重复填写端口。网卡名称在全部网卡目标中唯一，Ping/TCP 最终名称在全部探测目标中唯一；不同 Namespace 重名时填写不同 name。拼错字段、重复字段、错误类型或缺失端口会直接报告字段位置。
+
+## 旧版 INI 迁移
+
+仍支持 `--config /path/config.ini`，会显示迁移提示。旧格式示例保存在 `conf/config.legacy.example.ini`。未指定路径时，只加载 conf 目录下唯一存在的 `config.yaml`、`config.yml` 或 `config.ini`；若多个文件并存，必须通过 `--config` 指定，避免升级后静默切换目标。
+
+将旧的 `if_nic` 转为 interfaces 的 device，别名转为 name；ping_address 转为 ping 的 address；TCP 地址拆成 address 和 port。迁移时 name 沿用旧别名，未使用别名则省略，保持服务端 key 一致。旧 tcping_time 是次数，新版使用 count；需要保持原采样量时显式填写 `count: 50`。仅复制旧配置中已启用的目标，旧已关闭段落中的示例不要迁入。
+
+INI 仍支持原运行参数：
 
 ```ini
 [runtime]
@@ -56,7 +96,7 @@ send_timeout = 5
 `workers` 为最大并发任务数，`send_timeout` 为每次发送的 socket 超时秒数。`[ping]` 可设置 `tcping_count` 和 `tcping_timeout`（秒）；未设置 count 时继续读取旧 `tcping_time`，该旧字段实际代表次数。
 
 - 自动发现每轮发送同类目标的完整列表，不再按单个目标发送；旧 `DiscoveryHours` 不再控制执行时间。
-- 同一类监控名称必须唯一，跨 Namespace 重名必须配置不同别名。旧 ns_ping_address 不能表达别名，因此重名需要调整目标配置；本次未新增 Namespace ping 别名语法。
+- YAML 的 Ping/TCP 均支持 namespace 和 name；旧 INI 的 Namespace Ping 别名语法未扩展。
 - 空目标、错误端口、重复 key、危险 key 字符在启动时拒绝；当前目标语法和 TCP 探测仅支持 IPv4/域名，不支持 IPv6。
 - Ping 平均时延修正为 avg，小数丢包率保留；100% 丢包时延为 0，需结合丢包率判断。
 - 命令不存在、超时、输出错误记为采集失败，不伪造 100% 丢包，也不发送该目标的错误数值。

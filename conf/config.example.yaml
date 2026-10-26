@@ -1,0 +1,34 @@
+# 高级示例，不会自动加载。可复制需要的字段到 config.yaml。
+zabbix:
+  server: zabbix.example.com
+  hostname: linux-01
+  port: 10051
+  send_timeout_seconds: 5
+
+runtime:
+  max_workers: 16
+
+system: true
+
+interfaces:
+  - device: eth0
+    name: wan                 # 可选别名；省略时使用 device
+  - device: veth1
+    namespace: ns1           # 可选；普通目标不填写
+    name: wan_ns1            # 跨 Namespace 的监控名称也必须唯一
+
+ping:
+  - address: 1.1.1.1
+    name: dns                # 省略时使用 address
+    duration_seconds: 50     # 每轮持续时间，不是执行周期
+  - address: 8.8.8.8
+    namespace: ns1
+    name: dns_ns1
+
+tcp:
+  - address: example.com
+    port: 443
+    name: web                # 最终监控名称为 web:443，name 中不要重复填写端口
+    count: 10                # 每轮探测次数，不是秒数；旧 INI 默认是 50 次
+    connect_timeout_seconds: 1
+    # namespace: ns1         # TCP 同样支持 Namespace

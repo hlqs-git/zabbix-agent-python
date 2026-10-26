@@ -1,0 +1,21 @@
+# 1. 填写连接信息，hostname 必须与 Zabbix 中的“主机名称”一致。
+zabbix:
+  server: zabbix.example.com
+  hostname: linux-01
+
+# 2. 写了就监控，不需要的项目直接删除。
+# 系统 CPU、负载、内存和根分区使用率。
+system: true
+
+# 网卡：请将 eth0 改为本机实际接口名，可执行 ip link 查看。
+interfaces:
+  - device: eth0
+
+# Ping：填写需要探测的 IP 或域名。
+ping:
+  - address: 1.1.1.1
+
+# TCP：填写需要探测的地址和端口。
+tcp:
+  - address: example.com
+    port: 443

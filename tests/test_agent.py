@@ -53,7 +53,7 @@ class ProbeTests(unittest.TestCase):
 
 class ConfigTests(unittest.TestCase):
     def test_empty_discovery_clears_previous_targets(self):
-        config = load_config(ROOT / 'conf/config.ini')
+        config = load_config(ROOT / 'conf/config.legacy.example.ini')
         config.interfaces = []
         config.probes = []
         metrics = build_discovery(config)
@@ -61,14 +61,14 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(all(json.loads(metric.value) == {'data': []} for metric in metrics))
 
     def test_existing_config_and_complete_discovery(self):
-        config = load_config(ROOT / 'conf/config.ini')
+        config = load_config(ROOT / 'conf/config.legacy.example.ini')
         self.assertEqual(len(config.probes), 4)
         metrics = build_discovery(config)
         self.assertEqual(len(metrics), 2)
         self.assertEqual(len(json.loads(metrics[1].value)['data']), 4)
 
     def test_invalid_config(self):
-        original = (ROOT / 'conf/config.ini').read_text(encoding='utf-8')
+        original = (ROOT / 'conf/config.legacy.example.ini').read_text(encoding='utf-8')
         for content in (original.replace('ServerPort=10051', 'ServerPort=70000'), original.replace('1.1.1.1,8.8.8.8', '1.1.1.1,1.1.1.1'), original.replace('ping_time = 50', 'ping_time = 0')):
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / 'config.ini'
@@ -142,7 +142,7 @@ class IntegrationTests(unittest.TestCase):
                 self.assertTrue(acquired)
 
     def test_fast_metrics_are_sent_in_one_batch(self):
-        config = load_config(ROOT / 'conf/config.ini')
+        config = load_config(ROOT / 'conf/config.legacy.example.ini')
         config.system = False
         config.probes = []
         config.interfaces = [Target('network', 'a', 'a'), Target('network', 'b', 'b')]
@@ -161,7 +161,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(metrics[0].value, 0.5)
 
     def test_cycle_reports_collection_failure_and_keeps_other_targets(self):
-        config = load_config(ROOT / 'conf/config.ini')
+        config = load_config(ROOT / 'conf/config.legacy.example.ini')
         config.system = False
         config.interfaces = []
         batches = []
