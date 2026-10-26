@@ -5,7 +5,7 @@ import sys
 from time import monotonic, time
 
 from .config import ROOT, load_config
-from .discovery import build_discovery
+from .discovery import DiscoveryState, build_discovery
 from .logging_setup import setup_logging
 from .models import Metric
 from .runtime import collect_tasks, process_lock
@@ -34,7 +34,7 @@ def interface_metrics(host, target, snapshot=None):
 
 def probe_metrics(host, target):
     if target.kind == 'icmp':
-        loss, delay = ping(target.address, target.duration, namespace=target.namespace)
+        loss, delay = ping(target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip)
     else:
         _, loss, delay = tcping(target.address, target.port, target.duration, target.timeout, namespace=target.namespace)
     timestamp = int(time())
@@ -42,7 +42,7 @@ def probe_metrics(host, target):
             for field, value in (('loss', loss), ('delay', delay))]
 
 
-def run_cycle(config, logger, sender=None):
+def run_cycle(config, logger, sender=None, discovery_state_path=None):
     sender = sender or Sender(config.server, config.port, config.send_timeout)
     started = monotonic()
     processed = failed = errors = 0
@@ -54,8 +54,21 @@ def run_cycle(config, logger, sender=None):
         failed += result.failed
         if not result.ok:
             logger.error('Zabbix send failed: processed=%s failed=%s error=%s', result.processed, result.failed, result.error)
+        return result
 
-    send(build_discovery(config))
+    # main supplies the persistent path; embedders/tests may use an in-memory cycle.
+    state = DiscoveryState(discovery_state_path, logger)
+    discovery = state.pending(build_discovery(config), config.server, config.port)
+    if discovery:
+        result = send(discovery)
+        if result.ok:
+            try:
+                state.acknowledge(discovery, config.server, config.port)
+            except OSError as exc:
+                errors += 1
+                logger.error('Cannot save discovery cache; retrying next cycle: %s', exc)
+    else:
+        logger.info('Discovery unchanged; next heartbeat is due within one hour')
     quick = []
     if config.system:
         quick.append(('system', partial(system_metrics, config.hostname)))
@@ -105,7 +118,7 @@ def main(argv=None):
             if not acquired:
                 logger.warning('Previous cycle is still running; skipping')
                 return 0
-            return run_cycle(config, logger)
+            return run_cycle(config, logger, discovery_state_path=ROOT / 'log/discovery-state.json')
     except Exception as exc:
         print('Agent failed: {}: {}'.format(type(exc).__name__, exc), file=sys.stderr)
         return 1

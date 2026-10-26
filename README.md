@@ -94,10 +94,30 @@ tcp:
 | 任意目标 | name | 可选监控别名；省略时使用 device 或 address |
 | 任意目标 | namespace | 可选 Linux network namespace；省略时为普通目标 |
 | ping 目标 | duration_seconds | 50 秒，每轮探测持续时间 |
+| ping 目标 | source_ip | 可选源 IPv4 地址；省略时由系统路由选择 |
 | tcp 目标 | count | 10 次，每轮探测次数 |
 | tcp 目标 | connect_timeout_seconds | 1 秒，单次连接超时 |
 
 TCP 最终监控名称由 `name`（或 address）加 `:port` 生成，例如 `web:443`，不要在 name 中重复填写端口。网卡名称在全部网卡目标中唯一，Ping/TCP 最终名称在全部探测目标中唯一；不同 Namespace 重名时填写不同 name。拼错字段、重复字段、错误类型或缺失端口会直接报告字段位置。
+
+指定 Ping 源 IP 的示例：
+
+```yaml
+ping:
+  - address: 1.1.1.1
+    name: dns_via_wan
+    source_ip: 192.0.2.10
+```
+
+`source_ip` 只接受 IPv4 地址，不接受接口名；示例地址需替换成实际配置在本机接口上的地址。与 namespace 同时使用时，该地址必须在对应 Namespace 中存在。未填写时保持原来的路由选择行为。对同一目标使用多个源 IP 时，每条配置必须使用不同 name，以区分服务端监控项。TCP 暂不支持 source_ip。
+
+## 自动发现发送策略
+
+首次运行发送网卡与探测目标的完整发现列表；发现集合变化后，在下一次程序运行时立即发送变化的规则；集合不变时每 3600 秒补发一次。规则中最后一个目标删除后仍发送空列表。仅调整配置顺序、修改不影响监控名称的源 IP 或采样参数，不触发资源发现。普通 CPU、流量、丢包率等指标仍每轮采集和上报。
+
+确认接收成功后，发现状态才原子保存到 `log/discovery-state.json`，按 Server、端口、Hostname 和发现 key 分别记录。批次失败或部分失败不更新状态，下轮重试。缓存丢失、损坏或系统时钟回退时重新发送完整发现；缓存写入失败不会中断其他指标上报。默认命令入口在原进程锁内操作状态，无需新增配置字段。删除该缓存文件可使下一轮重新发现。
+
+服务端接收发现数据不保证监控项即时创建，首次运行可能仍有个别指标被拒绝；后续周期再观察。若修改服务端监控项原型而客户端目标未变，最长需等待下一次每小时补发。
 
 ## 旧版 INI 迁移
 
@@ -115,7 +135,7 @@ send_timeout = 5
 
 `workers` 为最大并发任务数，`send_timeout` 为每次发送的 socket 超时秒数。`[ping]` 可设置 `tcping_count` 和 `tcping_timeout`（秒）；未设置 count 时继续读取旧 `tcping_time`，该旧字段实际代表次数。
 
-- 自动发现每轮发送同类目标的完整列表，不再按单个目标发送；旧 `DiscoveryHours` 不再控制执行时间。
+- 自动发现采用变化立即发送、未变化每小时补发；每次发送完整集合。旧 `DiscoveryHours` 不再控制执行时间。
 - YAML 的 Ping/TCP 均支持 namespace 和 name；旧 INI 的 Namespace Ping 别名语法未扩展。
 - 空目标、错误端口、重复 key、危险 key 字符在启动时拒绝；当前目标语法和 TCP 探测仅支持 IPv4/域名，不支持 IPv6。
 - Ping 平均时延修正为 avg，小数丢包率保留；100% 丢包时延为 0，需结合丢包率判断。

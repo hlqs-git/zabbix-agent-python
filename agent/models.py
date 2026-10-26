@@ -19,6 +19,7 @@ class Target:
     port: Optional[int] = None
     duration: int = 50
     timeout: int = 1
+    source_ip: Optional[str] = None
 
 
 @dataclass

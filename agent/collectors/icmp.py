@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+from ipaddress import IPv4Address
 
 
 def parse_ping(output):
@@ -18,8 +19,11 @@ def parse_ping(output):
     return loss, float(rtt.group(1))
 
 
-def ping(ip, sec=50, interval='0.25', namespace=None):
-    command = ['ping', '-w', str(sec), '-i', str(interval), '-q', ip]
+def ping(ip, sec=50, interval='0.25', namespace=None, source_ip=None):
+    command = ['ping', '-w', str(sec), '-i', str(interval), '-q']
+    if source_ip is not None:
+        command.extend(['-I', str(IPv4Address(source_ip))])
+    command.append(ip)
     if namespace:
         command = ['ip', 'netns', 'exec', namespace] + command
     result = subprocess.run(command, capture_output=True, text=True,

@@ -1,6 +1,7 @@
 """Strict, safe YAML parsing with user-facing field paths."""
 from .config import Config
 from .models import Target
+from ipaddress import IPv4Address
 
 
 def _mapping(value, allowed, location):
@@ -76,7 +77,7 @@ def parse_yaml(data):
         for index, entry in enumerate(entries, 1):
             location = '{} 第 {} 个目标'.format(section, index)
             allowed = {'name', 'namespace', 'device'} if section == 'interfaces' else {'name', 'namespace', 'address'}
-            allowed |= {'duration_seconds'} if section == 'ping' else ({'port', 'count', 'connect_timeout_seconds'} if section == 'tcp' else set())
+            allowed |= {'duration_seconds', 'source_ip'} if section == 'ping' else ({'port', 'count', 'connect_timeout_seconds'} if section == 'tcp' else set())
             entry = _mapping(entry, allowed, location)
             address_field = 'device' if section == 'interfaces' else 'address'
             address = _text(entry.get(address_field), location + '.' + address_field)
@@ -89,7 +90,13 @@ def parse_yaml(data):
             if section == 'interfaces':
                 interfaces.append(Target('network', address, name, namespace))
             elif section == 'ping':
-                probes.append(Target('icmp', address, name, namespace, duration=_integer(entry.get('duration_seconds', 50), location + '.duration_seconds')))
+                source_ip = None
+                if 'source_ip' in entry:
+                    try:
+                        source_ip = str(IPv4Address(_text(entry['source_ip'], location + '.source_ip')))
+                    except ValueError as exc:
+                        raise ValueError('{} .source_ip 必须是有效的 IPv4 地址'.format(location)) from exc
+                probes.append(Target('icmp', address, name, namespace, duration=_integer(entry.get('duration_seconds', 50), location + '.duration_seconds'), source_ip=source_ip))
             else:
                 port = _integer(entry.get('port'), location + '.port', 65535)
                 probes.append(Target('tcp', address, '{}:{}'.format(name, port), namespace, port,
@@ -119,6 +126,8 @@ def describe_config(config):
             'TCP {}:{}（{} 次，单次超时 {} 秒）'.format(target.address, target.port, target.duration, target.timeout))
         if target.namespace:
             detail += '，Namespace：' + target.namespace
+        if target.source_ip:
+            detail += '，源 IP：' + target.source_ip
         detail += '，监控名称：' + target.name
         lines.append('  ' + detail)
     if not config.system and not config.interfaces and not config.probes:

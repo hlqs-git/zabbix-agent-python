@@ -21,9 +21,11 @@ ping:
   - address: 1.1.1.1
     name: dns                # 省略时使用 address
     duration_seconds: 50     # 每轮持续时间，不是执行周期
+    # source_ip: 192.0.2.10  # 可选源 IPv4；必须实际配置在本机的接口上
   - address: 8.8.8.8
     namespace: ns1
     name: dns_ns1
+    # source_ip: 192.0.2.20  # 使用 namespace 时，源 IP 必须属于该 namespace
 
 tcp:
   - address: example.com
