@@ -1,0 +1,4 @@
+# Deliberately pinned for both Python 3.9 and 3.12; include transitive wheels too.
+psutil==5.9.8
+py-zabbix==1.1.7
+PyYAML==6.0.2

@@ -20,6 +20,9 @@ parts/
 sdist/
 var/
 wheels/
+# These are deliverable offline dependencies, not local build output.
+!offline/*/wheels/
+!offline/*/wheels/*.whl
 share/python-wheels/
 *.egg-info/
 .installed.cfg
