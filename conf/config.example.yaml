@@ -9,10 +9,10 @@ runtime:
   max_workers: 16
 
 logging:
-  level: INFO                # DEBUG / INFO / WARNING / ERROR / CRITICAL
+  level: INFO                # 普通日志等级：DEBUG / INFO / WARNING / ERROR / CRITICAL
   console: true              # false 时仅写日志文件
   retention_days: 14         # 历史日志保留天数
-  # DEBUG 审计模式逐条发送，以获取每条指标的服务端确认，增加请求数量。
+  # 审计始终完整记录并逐条发送以取得单指标确认，不受 level 影响。
 
 system: true
 

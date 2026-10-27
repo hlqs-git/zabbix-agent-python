@@ -129,7 +129,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Collect Linux metrics and send to Zabbix')
     parser.add_argument('--config', help='YAML 或旧版 INI 配置文件路径')
     parser.add_argument('--check-config', action='store_true', help='Validate configuration without collecting or sending')
-    parser.add_argument('--log-level', type=str.upper, choices=LEVELS, help='临时覆盖日志等级；DEBUG 逐指标发送并记录确认结果')
+    parser.add_argument('--log-level', type=str.upper, choices=LEVELS, help='临时覆盖普通日志等级；审计始终完整记录')
     args = parser.parse_args(argv)
     try:
         config = load_config(args.config)
@@ -151,8 +151,7 @@ def main(argv=None):
         event(logger, logging.INFO, 'agent_start', config_requested=args.config or 'auto',
               log_level=config.log_level, console=config.log_console, retention_days=config.log_retention_days,
               log_path=str(ROOT / 'log/agent.log'), audit_path=str(ROOT / 'log/audit.jsonl'))
-        if config.log_level == 'DEBUG':
-            logger.debug('DEBUG audit mode: individual metric requests; increases request count')
+        logger.debug('Full audit mode: individual metric requests; increases request count')
         with process_lock(ROOT / 'log/agent.lock') as acquired:
             if not acquired:
                 logger.warning('Previous cycle is still running; skipping')

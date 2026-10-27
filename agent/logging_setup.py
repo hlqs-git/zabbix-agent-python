@@ -52,7 +52,8 @@ def setup_logging(directory, level='INFO', console=True, retention_days=14, run_
         raise ValueError('Invalid log level: ' + level)
     directory.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger('agent')
-    logger.setLevel(level)
+    # Capture all audit events; human-facing handlers apply the chosen level.
+    logger.setLevel(logging.DEBUG)
     logger.propagate = False
     for handler in logger.handlers[:]:
         if getattr(handler, '_agent_owned', False):
@@ -65,6 +66,7 @@ def setup_logging(directory, level='INFO', console=True, retention_days=14, run_
         for filename, formatter, project in (('agent.log', readable, True), ('audit.jsonl', audit, False)):
             handler = DailyFileHandler(str(directory / filename), when='midnight', backupCount=retention_days, encoding='utf-8')
             handler._agent_owned = True
+            handler.setLevel(level if project else logging.DEBUG)
             handler.setFormatter(formatter)
             if project:
                 handler.addFilter(ReadableFilter())
@@ -74,6 +76,7 @@ def setup_logging(directory, level='INFO', console=True, retention_days=14, run_
         if console:
             stream = logging.StreamHandler()
             stream._agent_owned = True
+            stream.setLevel(level)
             stream.setFormatter(readable)
             stream.addFilter(ReadableFilter())
             logger.addHandler(stream)

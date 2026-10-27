@@ -38,7 +38,7 @@ class AuditLoggingTests(unittest.TestCase):
 
     def test_complete_cycle_links_values_to_delivery_records(self):
         with tempfile.TemporaryDirectory() as directory:
-            logger = setup_logging(Path(directory), level='DEBUG', console=False, run_id='audit-cycle')
+            logger = setup_logging(Path(directory), level='WARNING', console=False, run_id='audit-cycle')
             cfg = parse_yaml({'zabbix': {'server': 'server', 'hostname': 'host'}, 'ping': [{'address': '1.1.1.1'}]})
             def accept(metrics):
                 self.assertEqual(len(metrics), 1)
@@ -55,6 +55,7 @@ class AuditLoggingTests(unittest.TestCase):
                 loss = next(item for item in delivered if item['key'] == 'ping_get[1.1.1.1,loss]')
                 self.assertEqual((loss['value'], loss['status']), (0.5, 'accepted'))
                 self.assertTrue(all(record['run_id'] == 'audit-cycle' for record in records))
+                self.assertEqual((Path(directory) / 'agent.log').read_text(encoding='utf-8'), '')
             finally:
                 for handler in logger.handlers[:]:
                     logger.removeHandler(handler)
@@ -128,15 +129,17 @@ class AuditLoggingTests(unittest.TestCase):
             logger = setup_logging(Path(directory), level='DEBUG', console=False, retention_days=7, run_id='run-one')
             logger.debug('raw line\nnext line', extra={'event': 'raw', 'fields': {'value': 0.5}})
             setup_logging(Path(directory), level='INFO', console=False, retention_days=7, run_id='run-two')
-            logger.debug('must be filtered')
+            logger.debug('audit only')
             logger.info('second event')
             for handler in logger.handlers:
                 handler.flush()
             records = [json.loads(line) for line in (Path(directory) / 'audit.jsonl').read_text(encoding='utf-8').splitlines()]
-            self.assertEqual(len(records), 2)
+            self.assertEqual(len(records), 3)
             self.assertEqual(records[0]['run_id'], 'run-one')
             self.assertEqual(records[0]['fields']['value'], 0.5)
             self.assertEqual(records[1]['run_id'], 'run-two')
+            readable = (Path(directory) / 'agent.log').read_text(encoding='utf-8')
+            self.assertNotIn('audit only', readable)
             self.assertIn('pid', records[0])
             self.assertIn('thread', records[0])
             self.assertEqual(logger.handlers[0].backupCount, 7)
