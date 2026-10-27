@@ -86,8 +86,11 @@ class ReadableLoggingTests(unittest.TestCase):
             self.assertIn('上报值=45.67', readable)
             self.assertEqual(readable.count('ping_get[dns,delay]'), 1)
             self.assertNotIn('"fields"', console.getvalue())
+            self.assertEqual(console.getvalue(), readable)
             records = [json.loads(line) for line in (Path(directory) / 'audit.jsonl').read_text(encoding='utf-8').splitlines()]
-            self.assertEqual(len(records), 4)
+            self.assertEqual([record['event'] for record in records], ['metric_collected', 'metric_delivery'])
+            self.assertNotIn('message', records[1])
+            self.assertNotIn('error', records[1]['fields'])
             self.assertTrue(all(record['run_id'] == 'readable-run' for record in records))
 
     def test_command_events_do_not_clutter_readable_log(self):

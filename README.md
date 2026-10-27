@@ -150,13 +150,14 @@ logging:
 
 `audit.jsonl` 采用每行一条 JSON，包含带时区的时间、level、run_id、pid、thread、事件名及 fields。每轮共享 run_id，每条指标通过 metric_id 关联采集、发送和结果；clock 为采集时间，sent_at 为开始上报时间，acknowledged_at 为响应返回时间（均为 Unix 秒）。value 保留解析后原始数值，wire_value 是实际发送值。命令结果只记录命令、退出码、耗时和最多 512 字符的错误摘要，不再记录完整 stdout/stderr；异常堆栈仍可用于定位失败。旧日志不自动回写清理。
 
+审计精简仅作用于 `audit.jsonl`，不改变普通日志、控制台输出或逐指标发送方式。结构化记录的 message 与 event 相同时省略 message；`metric_delivery` 的 error 为空字符串时省略 error，其余状态、空时间和异常堆栈保留。采集记录仍独立保存，以便排查采集后未完成上报的情况；进程在发送期间异常退出时可能只有采集记录，不能据此判断是否已发送或已接收。
+
 审计文件在所有普通日志等级下均包含：
 
 - `collector_start`：目标、别名、Namespace、源 IP 与探测参数。
 - `command_start` / `command_result` / `command_error`：实际参数列表、退出码、耗时和短错误摘要；不含整段原始输出。
 - `metric_collected`：每条指标的 host、key、采集命令/API、采集值 value、clock、metric_id。
-- `metric_send`：实际发送值 wire_value，以及目标 Server 和端口。
-- `zabbix_response` / `metric_delivery`：服务端响应、结果计数、耗时、sent_at/acknowledged_at 和逐指标确认状态；没有实际发送时 sent_at 为空。
+- `metric_delivery`：统一记录实际发送值 wire_value、目标 Server 和端口、服务端响应计数、耗时、sent_at/acknowledged_at 和逐指标确认状态；没有实际发送时 sent_at 为空。审计文件不再单独写入重复的 `metric_send` 和 `zabbix_response`。
 - `discovery_decision` / `discovery_cache_saved`：首次/变化/心跳/跳过的判断和缓存更新。
 
 | metric_delivery.status | 含义 |

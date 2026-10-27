@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from agent.logging_setup import setup_logging
+from agent.logging_setup import JsonFormatter, setup_logging
 from agent.models import Metric
 from agent.sender import Sender
 from agent.yaml_config import parse_yaml
@@ -19,6 +19,28 @@ from agent.app import run_cycle
 
 
 class AuditLoggingTests(unittest.TestCase):
+    def test_compact_json_preserves_shared_record_and_meaningful_details(self):
+        formatter = JsonFormatter('compact-run')
+        for error in ('', 'response lost'):
+            with self.subTest(error=error):
+                fields = {'error': error, 'value': 45.615, 'wire_value': '45.62',
+                          'sent_at': None, 'response': None, 'status': 'not_sent'}
+                record = logging.LogRecord('agent.sender', logging.DEBUG, __file__, 1,
+                                           'metric_delivery', (), None)
+                record.event, record.fields = 'metric_delivery', fields
+                data = json.loads(formatter.format(record))
+                self.assertNotIn('message', data)
+                expected = dict(fields)
+                if not error:
+                    del expected['error']
+                self.assertEqual(data['fields'], expected)
+                self.assertIs(record.fields, fields)
+                self.assertEqual(record.fields['error'], error)
+                self.assertEqual(record.getMessage(), 'metric_delivery')
+        record.msg = 'Delivery details: %s'
+        record.args = ('failed',)
+        self.assertEqual(json.loads(formatter.format(record))['message'], 'Delivery details: failed')
+
     def test_retention_keeps_nonstandard_backup_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
