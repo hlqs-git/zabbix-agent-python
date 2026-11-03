@@ -90,7 +90,7 @@ tcp:
 |---|---|---|
 | zabbix | port | 10051 |
 | zabbix | send_timeout_seconds | 5 秒，每次发送的 socket 超时 |
-| runtime | max_workers | 16，最大并发任务数 |
+| runtime | max_workers | 4，最大并发任务数 |
 | 任意目标 | name | 可选监控别名；省略时使用 device 或 address |
 | 任意目标 | namespace | 可选 Linux network namespace；省略时为普通目标 |
 | ping 目标 | duration_seconds | 50 秒，每轮探测持续时间 |
@@ -181,7 +181,7 @@ INI 仍支持原运行参数：
 
 ```ini
 [runtime]
-workers = 16
+workers = 4
 send_timeout = 5
 ```
 

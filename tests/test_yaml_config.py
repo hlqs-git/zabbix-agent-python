@@ -59,7 +59,7 @@ tcp:
 
     def test_minimum_and_optional_targets(self):
         cfg = self.load(BASE)
-        self.assertEqual((cfg.port, cfg.workers, cfg.system), (10051, 16, False))
+        self.assertEqual((cfg.port, cfg.workers, cfg.system), (10051, 4, False))
         self.assertEqual(cfg.interfaces, [])
         self.assertEqual(cfg.probes, [])
 
