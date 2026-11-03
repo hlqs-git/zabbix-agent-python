@@ -19,7 +19,7 @@ class Config:
     system: bool
     interfaces: List[Target]
     probes: List[Target]
-    workers: int = 16
+    workers: int = 4
     send_timeout: int = 5
     log_level: str = 'INFO'
     log_console: bool = True
@@ -136,5 +136,5 @@ def _parse(cfg):
         raise ValueError('logging.level must be DEBUG/INFO/WARNING/ERROR/CRITICAL')
     return Config(server, validate_port(cfg.get('zabbix conf', 'ServerPort')), hostname,
                   enabled('sys'), interfaces, probes,
-                  positive('runtime', 'workers', 16), positive('runtime', 'send_timeout', 5),
+                  positive('runtime', 'workers', 4), positive('runtime', 'send_timeout', 5),
                   log_level, cfg.getboolean('logging', 'console', fallback=True), positive('logging', 'retention_days', 14))

@@ -118,7 +118,7 @@ def parse_yaml(data):
     return Config(_text(zabbix.get('server'), 'zabbix.server'),
                   _integer(zabbix.get('port', 10051), 'zabbix.port', 65535),
                   _text(zabbix.get('hostname'), 'zabbix.hostname'), system, interfaces, probes,
-                  _integer(runtime.get('max_workers', 16), 'runtime.max_workers'),
+                  _integer(runtime.get('max_workers', 4), 'runtime.max_workers'),
                   _integer(zabbix.get('send_timeout_seconds', 5), 'zabbix.send_timeout_seconds'),
                   log_level, log_console, _integer(log_config.get('retention_days', 14), 'logging.retention_days'))
 

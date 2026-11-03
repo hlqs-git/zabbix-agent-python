@@ -6,7 +6,7 @@ zabbix:
   send_timeout_seconds: 5
 
 runtime:
-  max_workers: 16
+  max_workers: 4
 
 logging:
   level: INFO                # 普通日志等级：DEBUG / INFO / WARNING / ERROR / CRITICAL

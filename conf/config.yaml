@@ -19,3 +19,6 @@ ping:
 tcp:
   - address: example.com
     port: 443
+
+runtime:
+  max_workers: 4
