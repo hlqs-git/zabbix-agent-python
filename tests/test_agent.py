@@ -47,8 +47,8 @@ class ProbeTests(unittest.TestCase):
     def test_ping_command_is_bounded_and_english(self):
         with patch('agent.collectors.icmp.subprocess.run', return_value=SimpleNamespace(returncode=1, stdout='100% packet loss', stderr='')) as run:
             self.assertEqual(ping('1.1.1.1', 2), (100.0, 0.0))
-            self.assertEqual(run.call_args.kwargs['timeout'], 7)
-            self.assertEqual(run.call_args.kwargs['env']['LC_ALL'], 'C')
+            self.assertEqual(run.call_args[1]['timeout'], 7)
+            self.assertEqual(run.call_args[1]['env']['LC_ALL'], 'C')
 
 
 class ConfigTests(unittest.TestCase):
@@ -179,8 +179,8 @@ class IntegrationTests(unittest.TestCase):
         payload = [{'flags': ['UP', 'LOWER_UP'], 'stats64': {'rx': {'bytes': 123}, 'tx': {'bytes': 456}}}]
         with patch('agent.collectors.network.subprocess.run', return_value=SimpleNamespace(returncode=0, stdout=json.dumps(payload))) as run:
             self.assertEqual(get_ns_net_io_counters('ns1', 'eth0'), (123, 456, 1))
-            self.assertNotIn('shell', run.call_args.kwargs)
-            self.assertEqual(run.call_args.kwargs['timeout'], 5)
+            self.assertNotIn('shell', run.call_args[1])
+            self.assertEqual(run.call_args[1]['timeout'], 5)
 
     def test_probe_timeout_propagates_to_task_error(self):
         with patch('agent.collectors.icmp.subprocess.run', side_effect=subprocess.TimeoutExpired('ping', 7)):

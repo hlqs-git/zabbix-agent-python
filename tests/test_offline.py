@@ -34,10 +34,10 @@ class OfflineTests(unittest.TestCase):
             self.module().write_text(target, '#!/usr/bin/env bash\nif [[ $1 != -v ]]; then exit 2; fi\necho "TCPING version 2.6.0"\n')
             target.chmod(0o755)
             command = [bash, str(ROOT / 'scripts/check-tcping.sh'), str(target)]
-            result = subprocess.run(command, capture_output=True)
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.module().write_text(target, '#!/usr/bin/env bash\nexit 2\n')
-            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
+            self.assertNotEqual(subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode, 0)
 
     def test_shell_preflight_rejects_missing_and_wrong_schema(self):
         bash = bash_path()
@@ -47,16 +47,16 @@ class OfflineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root, binary = self.fixture(Path(directory))
             command = [bash, str(ROOT / 'scripts/check-bundle.sh'), str(root), 'ubuntu-24.04-amd64', sys.executable, str(binary)]
-            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
+            self.assertNotEqual(subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode, 0)
             module.seal(root, 'ubuntu-24.04-amd64')
-            result = subprocess.run(command, capture_output=True)
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.assertEqual(result.returncode, 0, result.stderr)
             import json
             manifest_path = root / 'manifest.json'
             manifest = json.loads(manifest_path.read_text())
             manifest['schema'] = 99
             module.write_text(manifest_path, json.dumps(manifest))
-            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
+            self.assertNotEqual(subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode, 0)
 
     def module(self):
         spec = importlib.util.spec_from_file_location('bundle', ROOT / 'scripts/bundle.py')

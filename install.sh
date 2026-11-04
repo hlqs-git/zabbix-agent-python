@@ -26,8 +26,8 @@ case "${ID:-}:${VERSION_ID:-}" in
         PREREQUISITES='apt-get install -y python3.12 python3.12-venv iputils-ping iproute2 ca-certificates' ;;
     centos:8|centos:8.5)
         [[ ${NAME:-} != *Stream* ]] || die 'CentOS Stream 不适用 CentOS Linux 离线包'
-        PROFILE=centos-8.5-x86_64; PYTHON=python3.9; PYTHON_VERSION=3.9
-        PREREQUISITES='dnf install -y python39 python39-pip iputils iproute ca-certificates' ;;
+        PROFILE=centos-8.5-x86_64; PYTHON=python3; PYTHON_VERSION=3.6
+        PREREQUISITES='dnf install -y python3 python3-pip iputils iproute ca-certificates' ;;
     *) die '仅支持 Ubuntu 24.04 和 CentOS Linux 8.5' ;;
 esac
 missing=()
@@ -38,6 +38,13 @@ if ((${#missing[@]})); then
     printf '缺少基础工具：%s\n请由管理员通过系统源或内网软件源预装：\n  %s\n' "${missing[*]}" "$PREREQUISITES" >&2
     exit 1
 fi
+"$PYTHON" - "$PYTHON_VERSION" <<'PY'
+import sys
+expected = tuple(int(part) for part in sys.argv[1].split('.'))
+if sys.version_info[:2] != expected:
+    raise SystemExit('系统 Python 版本不匹配：需要 {}，实际为 {}.{}'.format(
+        sys.argv[1], *sys.version_info[:2]))
+PY
 "$PYTHON" -c 'import venv' || die "缺少 venv，请预装：$PREREQUISITES"
 BUNDLE=${BUNDLE:-"$ROOT/offline/$PROFILE"}
 bash "$ROOT/scripts/check-bundle.sh" "$BUNDLE" "$PROFILE" "$PYTHON" "$ROOT/package/download/tcping"

@@ -30,7 +30,7 @@ class LightweightTests(unittest.TestCase):
         output = '{"type":"statistics","addr":"1.1.1.1","total_packet_loss":0,"latency_avg":1}'
         with patch('agent.collectors.tcp.Path.is_file', return_value=True), patch('agent.collectors.tcp.subprocess.run', return_value=SimpleNamespace(returncode=0, stdout=output, stderr='')) as run:
             self.assertEqual(tcping('1.1.1.1', 443, count=1, namespace='ns1'), ('1.1.1.1', 0.0, 1.0))
-        command = run.call_args.args[0]
+        command = run.call_args[0][0]
         self.assertEqual(command[:4], ['ip', 'netns', 'exec', 'ns1'])
         self.assertEqual(Path(command[4]), ROOT / '.venv/bin/tcping')
 
@@ -78,7 +78,7 @@ class LightweightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root, binary = self.fixture(Path(directory))
             module.seal(root, 'ubuntu-24.04-amd64')
-            result = subprocess.run([bash, str(ROOT / 'scripts/check-bundle.sh'), str(root), 'ubuntu-24.04-amd64', sys.executable, str(binary)], capture_output=True)
+            result = subprocess.run([bash, str(ROOT / 'scripts/check-bundle.sh'), str(root), 'ubuntu-24.04-amd64', sys.executable, str(binary)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.assertEqual(result.returncode, 0, result.stderr)
 
 
