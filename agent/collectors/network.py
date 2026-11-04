@@ -23,7 +23,7 @@ def namespace_command(namespace, interface_name):
 def get_ns_net_io_counters(namespace, interface_name, command=None):
     command = namespace_command(namespace, interface_name) if command is None else command
     result = run_command(command,
-                            capture_output=True, text=True, timeout=5)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=5)
     if result.returncode:
         raise ValueError('Namespace interface command failed: {}'.format(error_summary(result.stderr.strip())))
     try:

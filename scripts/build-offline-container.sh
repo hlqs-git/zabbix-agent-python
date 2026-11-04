@@ -25,7 +25,7 @@ enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
 REPO
-        dnf -y install python39 python39-pip iputils iproute ca-certificates
+        dnf -y install python3 python3-pip iputils iproute ca-certificates
         ;;
     *) exit 2 ;;
 esac

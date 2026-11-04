@@ -15,13 +15,13 @@ sudo apt-get update
 sudo apt-get install -y python3.12 python3.12-venv iputils-ping iproute2 ca-certificates
 ```
 
-CentOS Linux 8.5 x86_64：
+CentOS Linux 8.5.2111 x86_64：
 
 ```bash
-sudo dnf install -y python39 python39-pip iputils iproute ca-certificates
+sudo dnf install -y python3 python3-pip iputils iproute ca-certificates
 ```
 
-CentOS 需要可用的归档源或内网软件源，安装脚本不自动修改软件源。必须使用 Python 3.9，系统自带的 3.6 不适用此离线包。完全隔离的主机需由管理员预装这些基础工具；项目不负责离线安装操作系统组件。
+CentOS 需要可用的归档源或内网软件源，安装脚本不自动修改软件源。使用系统 Python 3.6.8，无需额外安装 Python 3.9。完全隔离的主机需由管理员预装这些基础工具；项目不负责离线安装操作系统组件。
 
 ### 2. 安装项目并核对配置
 
@@ -37,6 +37,8 @@ bash install.sh
 无需 root 即可安装项目（项目目录需要可写）。安装器检查基础工具和离线包完整性，然后创建或修复 `.venv`，仅从本地 wheels 安装 Python 库，把内置 tcping 复制到 `.venv/bin/tcping`。不覆盖配置、不写系统目录、不添加 cron、不启动采集。`python3 init.py` 保留为兼容入口。
 
 如果缺少基础工具，脚本会列出缺失项及相应安装命令；如果 `.venv` 使用了其他 Python 版本，会要求先备份并移出旧环境。无需给系统 python 创建软链接，也无需给 tcping 创建系统软链接。
+
+从旧版 CentOS Python 3.9 环境升级时，先备份并移出项目下的 `.venv`，再执行安装器，以 Python 3.6.8 重建环境。CentOS 安装器使用 `python3`，请先用 `python3 --version` 确认版本为 3.6.8。
 
 项目已内置两个平台的 Python 离线库和校验清单，总共约 15 MB（含一份 tcping，不计 Git 历史和运行时 .venv）。详细包结构、维护者准备方式和可选断网验收见 [offline/README.md](offline/README.md)。尚未在真实 Linux/Docker 环境完成新版安装验收，本地测试不替代实际安装验证。
 

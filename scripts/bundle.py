@@ -7,7 +7,7 @@ import platform
 
 PROFILES = {
     'ubuntu-24.04-amd64': ('debs', '.deb', '3.12'),
-    'centos-8.5-x86_64': ('rpms', '.rpm', '3.9'),
+    'centos-8.5-x86_64': ('rpms', '.rpm', '3.6'),
 }
 
 
@@ -47,7 +47,10 @@ def seal(root, profile):
     files = inventory(root)
     if any(name.startswith(('debs/', 'rpms/', 'bin/')) or name.endswith(('.deb', '.rpm')) for name in files):
         raise ValueError('Lightweight bundle must not contain system packages or duplicate binaries; move old debs/rpms/bin outside the project')
-    for prefix in ('pip-', 'psutil-', 'py_zabbix-', 'pyyaml-'):
+    required = ('pip-', 'psutil-', 'py_zabbix-', 'pyyaml-')
+    if python == '3.6':
+        required += ('dataclasses-',)
+    for prefix in required:
         if not any(name.lower().startswith('wheels/' + prefix) and name.endswith('.whl') for name in files):
             raise ValueError('Missing wheel: ' + prefix)
     binary = root.parent.parent / 'package/download/tcping'

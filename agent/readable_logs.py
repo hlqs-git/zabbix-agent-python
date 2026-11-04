@@ -68,7 +68,7 @@ class ReadableFormatter(logging.Formatter):
                     body += ' {}={}'.format(label, inline(target[field]))
             return '采集开始', body
         if name in ('command_start', 'command_result', 'command_error'):
-            command = shlex.join([str(part) for part in f.get('command', [])])
+            command = ' '.join(shlex.quote(str(part)) for part in f.get('command', []))
             if name == 'command_start':
                 return '执行命令', '{} 超时={}秒'.format(inline(command), f.get('timeout'))
             body = '{} | 退出码={} | 耗时={}ms'.format(inline(command), f.get('returncode', '未取得'), f.get('elapsed_ms', '?'))

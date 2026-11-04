@@ -1,19 +1,19 @@
 # 轻量离线依赖
 
-目标：Ubuntu 24.04 amd64 / Python 3.12、CentOS Linux 8.5 x86_64 / Python 3.9。只携带应用依赖，不包含操作系统组件。
+目标：Ubuntu 24.04 amd64 / Python 3.12、CentOS Linux 8.5.2111 x86_64 / Python 3.6.8。只携带应用依赖，不包含操作系统组件。
 
 ## 随项目提供
 
 - `ubuntu-24.04-amd64/wheels`：Python 3.12 的 Linux wheels。
-- `centos-8.5-x86_64/wheels`：Python 3.9 的 Linux wheels。
+- `centos-8.5-x86_64/wheels`：Python 3.6.8 的 Linux wheels。
 - 每个平台的 `requirements.lock`、`manifest.json`、`SHA256SUMS`、`bundle.meta`。
 - `package/download/tcping`：两个平台共享一份二进制，校验值记录在每份 manifest 中。
 
-包含 pip 25.1.1、psutil 5.9.8、py-zabbix 1.1.7、PyYAML 6.0.2；上述版本不需要其他 Python 运行依赖。新增依赖时准备工具会一并下载其间接依赖。SHA256 用来检查文件损坏，不代替来源认证。
+Ubuntu 包含 pip 25.1.1、PyYAML 6.0.2；CentOS 包含 pip 21.3.1、PyYAML 6.0 和 dataclasses 0.8（Python 3.6 回移库）。两个平台均包含 psutil 5.9.8、py-zabbix 1.1.7。新增依赖时准备工具会一并下载其间接依赖。SHA256 用来检查文件损坏，不代替来源认证。
 
 ## 基础环境
 
-Ubuntu 由管理员预装 `python3.12 python3.12-venv iputils-ping iproute2 ca-certificates`；CentOS 预装 `python39 python39-pip iputils iproute ca-certificates`。CentOS 自带 Python 3.6 不用于本项目。项目不会安装系统包或改软件源。
+Ubuntu 由管理员预装 `python3.12 python3.12-venv iputils-ping iproute2 ca-certificates`；CentOS 预装 `python3 python3-pip iputils iproute ca-certificates`。CentOS 使用系统自带的 Python 3.6.8。项目不会安装系统包或改软件源。
 
 目标主机执行 `bash install.sh` 即可安装项目依赖；不需要 Docker，不需要 cmp，不要求全局安装 pip，不向 `/usr/local/sbin` 写入文件。配置、cron 和采集启动由用户自己管理。
 

@@ -43,7 +43,7 @@ def system_metrics(host):
 def interface_metrics(host, target, snapshot=None):
     event(logging.getLogger('agent.collectors.network'), logging.DEBUG, 'collector_start', host=host, target=asdict(target))
     namespace_args = namespace_command(target.namespace, target.address) if target.namespace else None
-    command = shlex.join(namespace_args) if target.namespace else 'psutil.net_io_counters(pernic=True); psutil.net_if_stats()'
+    command = ' '.join(shlex.quote(part) for part in namespace_args) if target.namespace else 'psutil.net_io_counters(pernic=True); psutil.net_if_stats()'
     values = (collect_with_context(command, get_ns_net_io_counters, target.namespace, target.address, command=namespace_args) if target.namespace
               else collect_with_context(command, get_net_io_counters, target.address, snapshot))
     timestamp = int(time())
@@ -55,12 +55,12 @@ def probe_metrics(host, target):
     event(logging.getLogger('agent.collectors.probe'), logging.DEBUG, 'collector_start', host=host, target=asdict(target))
     if target.kind == 'icmp':
         command = ping_command(target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip)
-        loss, delay = collect_with_context(shlex.join(command), ping, target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip, command=command)
+        loss, delay = collect_with_context(' '.join(shlex.quote(part) for part in command), ping, target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip, command=command)
     else:
         command = tcping_command(target.address, target.port, target.duration, target.timeout, namespace=target.namespace)
-        _, loss, delay = collect_with_context(shlex.join(command), tcping, target.address, target.port, target.duration, target.timeout, namespace=target.namespace, command=command)
+        _, loss, delay = collect_with_context(' '.join(shlex.quote(part) for part in command), tcping, target.address, target.port, target.duration, target.timeout, namespace=target.namespace, command=command)
     timestamp = int(time())
-    return [Metric(host, 'ping_get[{},{}]'.format(target.name, field), value, timestamp, shlex.join(command))
+    return [Metric(host, 'ping_get[{},{}]'.format(target.name, field), value, timestamp, ' '.join(shlex.quote(part) for part in command))
             for field, value in (('loss', loss), ('delay', delay))]
 
 

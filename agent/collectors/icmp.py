@@ -32,7 +32,7 @@ def ping_command(ip, sec=50, interval='0.25', namespace=None, source_ip=None):
 
 def ping(ip, sec=50, interval='0.25', namespace=None, source_ip=None, command=None):
     command = ping_command(ip, sec, interval, namespace, source_ip) if command is None else command
-    result = run_command(command, capture_output=True, text=True,
+    result = run_command(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
                             timeout=sec + 5, env=dict(os.environ, LC_ALL='C'))
     if result.returncode not in (0, 1):
         raise ValueError('ping failed: {}'.format(error_summary(result.stderr.strip())))

@@ -32,7 +32,7 @@ def tcping_command(host, port, count=50, timeout=1, namespace=None):
 
 def tcping(host, port, count=50, timeout=1, namespace=None, command=None):
     command = tcping_command(host, port, count, timeout, namespace) if command is None else command
-    result = run_command(command, capture_output=True, text=True,
+    result = run_command(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
                             timeout=count * (timeout + 1) + 5)
     # Some tcping versions exit nonzero on full loss; valid statistics remain usable.
     try:
