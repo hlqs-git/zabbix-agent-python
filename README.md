@@ -211,3 +211,24 @@ python start.py --check-config
 上线前用一台 Linux 设备验证真实 ICMP/TCP、Namespace、cron、双实例锁和 Zabbix 接收。核对原模板 `Template_sysload_Python_Nodata v1` 或 `Template_sysload_Python v1`：丢包率及延迟需为浮点监控项；流量上报累计字节数，应在服务端配置变化率和需要的单位转换；检查发现宏、资源丢失策略和 nodata 告警。模板未包含在本仓库。
 
 重构前版本标签：`pre-refactor-2026-10-23`，对应提交 `1a4b972`（version 1.09）。需要回退时先保存当前改动，再从此标签建立恢复分支。
+
+
+### Python 版本离线安装
+
+支持 Linux x86_64、CPython 3.6.8～3.12.x，不限制发行版版本。
+需预装 Python、venv、ping、ip；系统 glibc 仍需满足 wheel 和 tcping 的要求。
+
+```bash
+bash install.sh --python /usr/bin/python3.9
+bash install.sh --python python3.9 --bundle /mnt/offline/python-3.9-x86_64
+```
+
+安装始终离线。维护者须在联网准备机生成对应版本的包后拷入项目：
+
+```bash
+python scripts/prepare-wheels.py python-3.9-x86_64
+```
+
+支持 python-3.6-x86_64 至 python-3.12-x86_64。
+现有 CentOS/Ubuntu 包分别兼容 Python 3.6/3.12；3.7～3.11 须先生成包。
+缺少离线包或 Python 版本不符会在创建虚拟环境前终止。

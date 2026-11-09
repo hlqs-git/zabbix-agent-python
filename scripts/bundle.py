@@ -10,6 +10,15 @@ PROFILES = {
     'centos-8.5-x86_64': ('rpms', '.rpm', '3.6'),
 }
 
+PROFILES.update({'python-3.{}-x86_64'.format(minor): (None, None, '3.{}'.format(minor))
+                 for minor in range(6, 13)})
+
+
+def runtime_profile(version):
+    if tuple(version) < (3, 6, 8) or tuple(version[:2]) > (3, 12):
+        raise ValueError('Supported Python versions: 3.6.8 through 3.12.x')
+    return 'python-{}.{}-x86_64'.format(*version[:2])
+
 
 def write_text(path, text):
     with path.open('w', encoding='utf-8', newline='\n') as handle:
