@@ -4,32 +4,23 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 die() { printf '安装失败：%s\n' "$*" >&2; exit 1; }
 if [[ ${1:-} == --help ]]; then
-    printf '用法：bash install.sh [--bundle 离线目录] [--config 配置文件]\n系统 Python/venv/ping/ip 需预先安装，脚本只离线安装 Python 库和项目内 tcping。\n'
+    printf '用法：bash install.sh [--bundle 离线目录] [--config 配置文件] [--python 解释器]\n系统 Python/venv/ping/ip 需预先安装，脚本只离线安装 Python 库和项目内 tcping。\n'
     exit 0
 fi
 BUNDLE=''
 CONFIG=''
+PYTHON=python3
 while (($#)); do
     case "$1" in
-        --bundle|--config)
+        --bundle|--config|--python)
             (($# >= 2)) || die "$1 缺少参数"
-            if [[ $1 == --bundle ]]; then BUNDLE=$2; else CONFIG=$2; fi
+            if [[ $1 == --bundle ]]; then BUNDLE=$2; elif [[ $1 == --python ]]; then PYTHON=$2; else CONFIG=$2; fi
             shift 2 ;;
         *) die "未知参数 $1；请运行 bash install.sh --help" ;;
     esac
 done
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || die '仅支持 Linux x86_64'
-source /etc/os-release
-case "${ID:-}:${VERSION_ID:-}" in
-    ubuntu:24.04)
-        PROFILE=ubuntu-24.04-amd64; PYTHON=python3.12; PYTHON_VERSION=3.12
-        PREREQUISITES='apt-get install -y python3.12 python3.12-venv iputils-ping iproute2 ca-certificates' ;;
-    centos:8|centos:8.5)
-        [[ ${NAME:-} != *Stream* ]] || die 'CentOS Stream 不适用 CentOS Linux 离线包'
-        PROFILE=centos-8.5-x86_64; PYTHON=python3; PYTHON_VERSION=3.6
-        PREREQUISITES='dnf install -y python3 python3-pip iputils iproute ca-certificates' ;;
-    *) die '仅支持 Ubuntu 24.04 和 CentOS Linux 8.5' ;;
-esac
+PREREQUISITES='Python 3.6.8–3.12、venv、ping、ip（通过系统或内网源预装）'
 missing=()
 for tool in "$PYTHON" ping ip; do
     command -v "$tool" >/dev/null || missing+=("$tool")
@@ -38,15 +29,29 @@ if ((${#missing[@]})); then
     printf '缺少基础工具：%s\n请由管理员通过系统源或内网软件源预装：\n  %s\n' "${missing[*]}" "$PREREQUISITES" >&2
     exit 1
 fi
-"$PYTHON" - "$PYTHON_VERSION" <<'PY'
+PROFILE=$("$PYTHON" - "$ROOT/scripts" <<'PY'
 import sys
-expected = tuple(int(part) for part in sys.argv[1].split('.'))
-if sys.version_info[:2] != expected:
-    raise SystemExit('系统 Python 版本不匹配：需要 {}，实际为 {}.{}'.format(
-        sys.argv[1], *sys.version_info[:2]))
+sys.path.insert(0, sys.argv[1])
+from bundle import runtime_profile
+print(runtime_profile(sys.version_info[:3]))
 PY
+) || die '需要 Python 3.6.8–3.12.x'
+PYTHON_VERSION=$("$PYTHON" -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
 "$PYTHON" -c 'import venv' || die "缺少 venv，请预装：$PREREQUISITES"
-BUNDLE=${BUNDLE:-"$ROOT/offline/$PROFILE"}
+if [[ -z $BUNDLE ]]; then
+    if [[ ! -d "$ROOT/offline/$PROFILE" ]]; then
+        case "$PYTHON_VERSION" in
+            3.6) PROFILE=centos-8.5-x86_64 ;;
+            3.12) PROFILE=ubuntu-24.04-amd64 ;;
+        esac
+    fi
+    BUNDLE="$ROOT/offline/$PROFILE"
+fi
+[[ -d $BUNDLE ]] || die "缺少离线包 $BUNDLE；请在联网准备机生成后拷入"
+read -r schema bundle_profile bundle_python < "$BUNDLE/bundle.meta"
+[[ $bundle_python == "$PYTHON_VERSION" ]] || die '离线包 Python 版本不匹配'
+PROFILE=$bundle_profile
+
 bash "$ROOT/scripts/check-bundle.sh" "$BUNDLE" "$PROFILE" "$PYTHON" "$ROOT/package/download/tcping"
 BUNDLE=$(cd -- "$BUNDLE" && pwd)
 if [[ -e "$ROOT/.venv/pyvenv.cfg" ]]; then

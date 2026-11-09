@@ -13,6 +13,8 @@ from email.parser import BytesParser
 ROOT = Path(__file__).resolve().parents[1]
 VERSIONS = {'ubuntu-24.04-amd64': ('3.12', 'cp312'), 'centos-8.5-x86_64': ('3.6', 'cp36m')}
 
+VERSIONS.update({'python-3.{}-x86_64'.format(m): ('3.{}'.format(m), 'cp3{}{}'.format(m, 'm' if m < 8 else '')) for m in range(6, 13)})
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -22,8 +24,8 @@ def main():
     version, abi = VERSIONS[args.profile]
     target = ROOT / 'offline' / args.profile / 'wheels'
     target.mkdir(parents=True, exist_ok=True)
-    requirements = ROOT / 'offline' / ('requirements-centos36.in' if version == '3.6' else 'requirements.in')
-    pip_version = '21.3.1' if version == '3.6' else '25.1.1'
+    requirements = ROOT / 'offline' / ('requirements-centos36.in' if version == '3.6' else ('requirements-python37.in' if version == '3.7' else 'requirements.in'))
+    pip_version = {'3.6': '21.3.1', '3.7': '24.0', '3.8': '25.0.1'}.get(version, '25.1.1')
     if not args.seal_only:
         subprocess.run([sys.executable, '-m', 'pip', 'download', '--only-binary=:all:',
                     '--platform', 'manylinux2014_x86_64', '--python-version', version,

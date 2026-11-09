@@ -44,3 +44,15 @@ class Python36Tests(unittest.TestCase):
         lock = (ROOT / 'offline/centos-8.5-x86_64/requirements.lock').read_text()
         self.assertIn('dataclasses==0.8', lock)
         module.verify(ROOT / 'offline/centos-8.5-x86_64', 'centos-8.5-x86_64')
+
+
+class RuntimeProfilesTests(unittest.TestCase):
+    def test_supported_versions(self):
+        spec = importlib.util.spec_from_file_location('bundle', ROOT / 'scripts/bundle.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for minor in range(6, 13):
+            self.assertEqual(module.runtime_profile((3, minor, 8)), 'python-3.{}-x86_64'.format(minor))
+        for version in ((3, 6, 7), (3, 5, 10), (3, 13, 0)):
+            with self.assertRaises(ValueError):
+                module.runtime_profile(version)
