@@ -42,7 +42,7 @@ bash install.sh
 
 项目已内置两个平台的 Python 离线库和校验清单，总共约 15 MB（含一份 tcping，不计 Git 历史和运行时 .venv）。详细包结构、维护者准备方式和可选断网验收见 [offline/README.md](offline/README.md)。尚未在真实 Linux/Docker 环境完成新版安装验收，本地测试不替代实际安装验证。
 
-首次使用修改 `conf/config.yaml`：填写 `zabbix.server` 和 `zabbix.hostname`，再修改需要监控的网卡、Ping、TCP 目标；不需要的项目直接删除。hostname 必须对应 Zabbix 主机的技术名称。默认文件中的地址和接口仅为示例，请按实际环境修改。启动路径不依赖当前工作目录，无需创建系统 python 软链接。
+首次使用先执行 `cp conf/config.example.yaml conf/config.yaml`，再修改 `conf/config.yaml`：填写 `zabbix.server` 和 `zabbix.hostname`，再修改需要监控的网卡、Ping、TCP 目标；不需要的项目直接删除。hostname 必须对应 Zabbix 主机的技术名称。示例文件中的地址和接口仅为示例，请按实际环境修改。启动路径不依赖当前工作目录，无需创建系统 python 软链接。
 
 先执行 `--check-config` 核对连接信息、监控目标、别名和探测参数，再运行采集。配置检查不会连接 Zabbix 或执行探测；检查通过不代表接口存在、目标可达或服务端接收成功。YAML 缩进使用空格，不使用 Tab。
 
@@ -69,7 +69,7 @@ cron 示例：
 
 ## 配置方法
 
-`conf/config.yaml` 只放常用配置，`conf/config.example.yaml` 展示高级字段；后者不会自动加载。每个目标一条记录，写了就监控，删除该项或填写 `[]` 就不监控，不需要单独设置开关。`system: true` 开启系统指标，false 或省略表示关闭。
+`conf/config.yaml` 是本地部署配置，已被 Git 忽略，不再纳入版本管理；`conf/config.example.yaml` 是纳入版本管理的配置模板，不会自动加载。首次部署需复制模板并按实际环境修改。已有部署首次拉取此变更前，请将本机 `conf/config.yaml` 备份到仓库外，更新后恢复，避免 Git 删除原先受跟踪的配置文件。每个目标一条记录，写了就监控，删除该项或填写 `[]` 就不监控，不需要单独设置开关。`system: true` 开启系统指标，false 或省略表示关闭。
 
 ```yaml
 zabbix:
