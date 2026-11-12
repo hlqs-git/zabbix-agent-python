@@ -17,6 +17,7 @@ from .sender import Sender
 from .collectors.system import get_system_load
 from .collectors.network import get_net_io_counters, get_ns_net_io_counters, network_snapshot, namespace_command
 from .collectors.icmp import ping, ping_command
+from .collectors.http import httping, httping_command
 from .collectors.tcp import tcping, tcping_command
 
 
@@ -56,6 +57,9 @@ def probe_metrics(host, target):
     if target.kind == 'icmp':
         command = ping_command(target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip)
         loss, delay = collect_with_context(' '.join(shlex.quote(part) for part in command), ping, target.address, target.duration, namespace=target.namespace, source_ip=target.source_ip, command=command)
+    elif target.kind == 'http':
+        command = httping_command(target.address, target.duration, target.timeout, namespace=target.namespace, source_ip=target.source_ip)
+        loss, delay = collect_with_context(' '.join(shlex.quote(part) for part in command), httping, target.address, target.duration, target.timeout, namespace=target.namespace, source_ip=target.source_ip, command=command)
     else:
         command = tcping_command(target.address, target.port, target.duration, target.timeout, namespace=target.namespace)
         _, loss, delay = collect_with_context(' '.join(shlex.quote(part) for part in command), tcping, target.address, target.port, target.duration, target.timeout, namespace=target.namespace, command=command)

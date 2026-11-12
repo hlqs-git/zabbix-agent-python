@@ -63,7 +63,7 @@ def load_yaml(path):
 
 
 def parse_yaml(data):
-    data = _mapping(data, {'zabbix', 'runtime', 'system', 'interfaces', 'ping', 'tcp', 'logging'}, '配置')
+    data = _mapping(data, {'zabbix', 'runtime', 'system', 'interfaces', 'ping', 'tcp', 'http', 'logging'}, '配置')
     zabbix = _mapping(data.get('zabbix'), {'server', 'hostname', 'port', 'send_timeout_seconds'}, 'zabbix')
     runtime = _mapping(data.get('runtime', {}), {'max_workers'}, 'runtime')
     log_config = _mapping(data.get('logging', {}), {'level', 'console', 'retention_days'}, 'logging')
@@ -77,7 +77,7 @@ def parse_yaml(data):
     if type(system) is not bool:
         raise ValueError('system 必须填写 true 或 false，不要加引号')
     interfaces, probes = [], []
-    for section in ('interfaces', 'ping', 'tcp'):
+    for section in ('interfaces', 'ping', 'tcp', 'http'):
         entries = data.get(section, [])
         if not isinstance(entries, list):
             raise ValueError('{} 必须是列表，每个目标以 - 开头；不需要时请删除该项或填写 []'.format(section))
@@ -85,10 +85,12 @@ def parse_yaml(data):
             location = '{} 第 {} 个目标'.format(section, index)
             allowed = {'name', 'namespace', 'device'} if section == 'interfaces' else {'name', 'namespace', 'address'}
             allowed |= {'duration_seconds', 'source_ip'} if section == 'ping' else ({'port', 'count', 'connect_timeout_seconds'} if section == 'tcp' else set())
+            if section == 'http':
+                allowed |= {'count', 'timeout_seconds', 'source_ip'}
             entry = _mapping(entry, allowed, location)
             address_field = 'device' if section == 'interfaces' else 'address'
             address = _text(entry.get(address_field), location + '.' + address_field)
-            if section != 'interfaces' and ':' in address:
+            if section not in ('interfaces', 'http') and ':' in address:
                 raise ValueError('{} 暂不支持 IPv6；端口请单独填写 port'.format(location))
             namespace = _text(entry['namespace'], location + '.namespace') if 'namespace' in entry else None
             name = _text(entry.get('name', address), location + '.name')
@@ -104,6 +106,16 @@ def parse_yaml(data):
                     except ValueError as exc:
                         raise ValueError('{} .source_ip 必须是有效的 IPv4 地址'.format(location)) from exc
                 probes.append(Target('icmp', address, name, namespace, duration=_integer(entry.get('duration_seconds', 50), location + '.duration_seconds'), source_ip=source_ip))
+            elif section == 'http':
+                from urllib.parse import urlsplit
+                address = address if '://' in address else 'http://' + address
+                url = urlsplit(address)
+                if url.scheme not in ('http', 'https') or not url.hostname or url.username is not None or url.password is not None or any(c.isspace() for c in address):
+                    raise ValueError(location + '.address 必须是有效的 HTTP/HTTPS 地址')
+                if url.port is not None and not 1 <= url.port <= 65535:
+                    raise ValueError(location + '.address 端口无效')
+                source_ip = str(IPv4Address(_text(entry['source_ip'], location + '.source_ip'))) if 'source_ip' in entry else None
+                probes.append(Target('http', address, name, namespace, duration=_integer(entry.get('count', 10), location + '.count'), timeout=_integer(entry.get('timeout_seconds', 3), location + '.timeout_seconds'), source_ip=source_ip))
             else:
                 port = _integer(entry.get('port'), location + '.port', 65535)
                 probes.append(Target('tcp', address, '{}:{}'.format(name, port), namespace, port,
@@ -132,6 +144,7 @@ def describe_config(config):
     for target in config.interfaces + config.probes:
         detail = '网卡 {}'.format(target.address) if target.kind == 'network' else (
             'Ping {}（{} 秒）'.format(target.address, target.duration) if target.kind == 'icmp' else
+            'HTTP {}（{} 次，单次超时 {} 秒）'.format(target.address, target.duration, target.timeout) if target.kind == 'http' else
             'TCP {}:{}（{} 次，单次超时 {} 秒）'.format(target.address, target.port, target.duration, target.timeout))
         if target.namespace:
             detail += '，Namespace：' + target.namespace
