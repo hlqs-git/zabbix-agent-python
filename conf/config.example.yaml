@@ -40,3 +40,11 @@ tcp:
     count: 10                # 每轮探测次数，不是秒数；旧 INI 默认是 50 次
     connect_timeout_seconds: 1
     # namespace: ns1         # TCP 同样支持 Namespace
+
+http:
+  - address: http://www.baidu.com/
+    name: baidu_http
+    count: 10
+    timeout_seconds: 3
+    # source_ip: 192.0.2.10
+    # namespace: ns1

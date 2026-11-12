@@ -232,3 +232,9 @@ python scripts/prepare-wheels.py python-3.9-x86_64
 支持 python-3.6-x86_64 至 python-3.12-x86_64。
 现有 CentOS/Ubuntu 包分别兼容 Python 3.6/3.12；3.7～3.11 须先生成包。
 缺少离线包或 Python 版本不符会在创建虚拟环境前终止。
+
+### HTTP 探测（httping）
+
+在 YAML 中增加 `http` 列表（完整示例见 `conf/config.example.yaml`）。`address` 支持域名或 HTTP/HTTPS URL；`name` 为可选别名，省略时使用原始 address，且不能与其他探测名称重复。`source_ip` 可指定本机 IPv4 地址，使用 Namespace 时必须属于该 Namespace。支持 `namespace`、`count`（默认 10 次）和 `timeout_seconds`（默认 3 秒）。
+
+目标主机需自行安装系统 `httping`（Debian/Ubuntu 可执行 `apt install httping`），离线包不包含该工具。仅配置 HTTP 目标时才会调用它。使用默认 HEAD 探测，源地址通过 `-y` 绑定；HTTPS 启用 TLS。沿用 `Zabbix.ping.dst_ip` 自动发现和 `ping_get[名称,loss]` / `ping_get[名称,delay]`，分别上报 httping 的失败百分比和成功请求平均时延（毫秒）；全部失败时为 100 和 0。这里的 loss 是 HTTP 探测失败率，并非 ICMP 丢包率。无法启动工具或无法解析统计时记录采集错误，不伪造探测结果。

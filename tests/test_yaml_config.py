@@ -49,7 +49,7 @@ tcp:
         root = Path(__file__).resolve().parents[1]
         cfg = load_config(root / 'conf/config.example.yaml')
         self.assertEqual(len(cfg.interfaces), 2)
-        self.assertEqual(len(cfg.probes), 3)
+        self.assertEqual(len(cfg.probes), 4)
 
     def load(self, content):
         with tempfile.TemporaryDirectory() as directory:
